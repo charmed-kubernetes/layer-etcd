@@ -1,0 +1,16 @@
+name: etcd
+summary: ETCD charm layer
+maintainers:
+    - Charles Butler <charles.butler@canonical.com>
+description: |
+  A minimalist layer to deliver ETCD as a service
+tags:
+  - database
+  - layer
+subordinate: false
+provides:
+  db:
+    interface: etcd
+peers:
+  cluster:
+    interface: etcd
