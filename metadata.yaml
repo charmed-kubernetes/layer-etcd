@@ -11,6 +11,6 @@ subordinate: false
 provides:
   db:
     interface: etcd
-peers:
+peer:
   cluster:
     interface: etcd

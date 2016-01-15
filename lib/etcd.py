@@ -12,6 +12,7 @@
 #
 
 from charmhelpers.core.hookenv import unit_get
+from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core import unitdata
 from charmhelpers import fetch
 from os import getenv
@@ -59,30 +60,33 @@ class EtcdHelper:
             target.exists() and target.remove()
             origin.symlink(target)
 
-    def cluster_string(self):
-        cluster = ""
-        if self.hook_data.rels:
-            # This feels like highway robbery in terms of encapsulation...
-            cluster_rels = self.hook_data.rels['cluster'][1].keys()
-            # introspect the cluster, and form the cluster string.
-            # https://github.com/coreos/etcd/blob/master/Documentation/configuration.md#-initial-cluster
-            reldata = self.hook_data.rels['cluster'][1][cluster_rels[0]]
-            for unit in reldata:
-                private = reldata[unit]['private-address']
-                cluster = '{}{}=http://{}:7001,'.format(cluster,
-                                                        unit.replace('/', ''),
-                                                        private)
+    def cluster_string(self, cluster=''):
+        if not is_leader():
+            cluster = "{},{}=http://{}:7001".format(cluster,
+                                                    self.unit_name,
+                                                    self.private_address)
+        # if self.hook_data.rels:
+        #     # This feels like highway robbery in terms of encapsulation...
+        #     cluster_rels = self.hook_data.rels['cluster'][1].keys()
+        # introspect the cluster, and form the cluster string.
+        # https://github.com/coreos/etcd/blob/master/Documentation/configuration.md#-initial-cluster
+        #     reldata = self.hook_data.rels['cluster'][1][cluster_rels[0]]
+        #     for unit in reldata:
+        #         private = reldata[unit]['private-address']
+        #         cluster = '{}{}=http://{}:7001,'.format(cluster,
+        #                                            unit.replace('/', ''),
+        #                                              private)
         else:
             cluster = "{}=http://{}:7001".format(self.unit_name,
                                                  self.private_address)
 
-        return cluster.rstrip(',')
+        return cluster.rstrip(',').lstrip(',')
 
-    def register(self, leader_address, cluster_data):
+    def register(self, cluster_data):
         if not self.db.get('registered'):
-            command = "etcdctl -C http://{}:{} member add {}" \
-                      "http://{}:7001".format(cluster_data['leader_address'],
-                                              cluster_data['unit_name'],
-                                              self.private_address)
+            command = "etcdctl -C http://{}:4001 member add {}" \
+                      " http://{}:7001".format(cluster_data['leader_address'],
+                                               cluster_data['unit_name'],
+                                               self.private_address)
             check_call(split(command))
             self.db.set('registered', True)

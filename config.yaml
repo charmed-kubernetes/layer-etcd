@@ -11,3 +11,7 @@ options:
     type: int
     default: 4001
     description: Port to run the public ETCD service on
+  management_port:
+    type: int
+    default: 7001
+    description: Port to run the ETCD Management service
