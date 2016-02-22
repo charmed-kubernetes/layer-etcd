@@ -6,11 +6,14 @@ description: |
   A minimalist layer to deliver ETCD as a service
 tags:
   - database
+  - keystore
   - layer
+series:
+  - trusty
 subordinate: false
 provides:
   db:
     interface: etcd
-peer:
+peers:
   cluster:
     interface: etcd
