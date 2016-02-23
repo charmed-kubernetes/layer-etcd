@@ -25,6 +25,7 @@ import string
 from subprocess import check_call
 from subprocess import CalledProcessError
 
+
 class EtcdHelper:
 
     def __init__(self):
@@ -75,7 +76,7 @@ class EtcdHelper:
             target.exists() and target.remove()
             origin.symlink(target)
 
-    def cluster_string(self, proto='http'):
+    def cluster_string(self, proto='http', internal=True):
         ''' This method behaves slightly different depending on the
             context of its invocation. If the unit is the leader, the
             connection string should always be built and returned from
@@ -84,15 +85,23 @@ class EtcdHelper:
 
             @params proto - Determines the output prefix depending on need. eg:
                            http://127.0.0.1:4001 or etcd://127.0.0.1:4001
+            @params internal - Boolean value to determine if management or
+                               client cluster string is required.
         '''
         if is_leader():
             cluster_data = self.cluster_data()
             connection_string = ""
-            for u in cluster_data:
-                connection_string += ",{}={}://{}:{}".format(u,  # noqa
-                                                            proto,
-                                                            cluster_data[u]['private_address'],  # noqa
-                                                            self.management_port)  # noqa
+            if internal:
+                for u in cluster_data:
+                    connection_string += ",{}={}://{}:{}".format(u,  # noqa
+                                                                 proto,
+                                                                 cluster_data[u]['private_address'],  # noqa
+                                                                 self.management_port)  # noqa
+            else:
+                for u in cluster_data:
+                    connection_string += ",{}://{}:{}".format(proto,
+                                                              cluster_data[u]['private_address'],  # noqa
+                                                              self.port)
             return connection_string.lstrip(',')
         else:
             return leader_get('cluster')
