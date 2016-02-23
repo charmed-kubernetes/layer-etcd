@@ -13,6 +13,7 @@ from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import config
+from charmhelpers.core.hookenv import log
 
 from charmhelpers.core import unitdata
 from charmhelpers import fetch
@@ -22,7 +23,7 @@ import random
 from shlex import split
 import string
 from subprocess import check_call
-
+from subprocess import CalledProcessError
 
 class EtcdHelper:
 
@@ -132,10 +133,14 @@ class EtcdHelper:
                                              cluster_data['unit_name'],
                                              self.private_address,
                                              self.management_port)
-            check_call(split(command))
-            self.db.set('registered', True)
+            try:
+                check_call(split(command))
+                self.db.set('registered', True)
+            except CalledProcessError:
+                log('Notice: Unit failed to registration command', 'WARNING')
 
     def unregister(self, cluster_data):
+        # this wont work, it needs to be etcdctl member remove {{GUID}}
         command = "etcdctl -C http://{}:{} member remove {}" \
                   " http://{}:{}".format(cluster_data['leader_address'],
                                          config('port'),
