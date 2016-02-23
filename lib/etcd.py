@@ -91,7 +91,7 @@ class EtcdHelper:
                 connection_string += ",{}={}://{}:{}".format(u,  # noqa
                                                             proto,
                                                             cluster_data[u]['private_address'],  # noqa
-                                                            cluster_data[u]['management_port'])  # noqa
+                                                            self.management_port)  # noqa
             return connection_string.lstrip(',')
         else:
             return leader_get('cluster')
@@ -141,24 +141,12 @@ class EtcdHelper:
             self.db.set('registered', True)
 
     def unregister(self, cluster_data):
-        import pdb; pdb.set_trace()
         command = "etcdctl -C http://{}:{} member remove {}" \
                   " http://{}:{}".format(cluster_data['leader_address'],
                                          config('port'),
                                          cluster_data['private_address'],
                                          config('management_port'))
         check_call(split(command))
-
-
-def databag_to_dict(databag):
-    if not hasattr(databag, 'get_remote'):
-        raise ValueError("databag must be a conversation object")
-
-    return {databag.get_remote('unit_name'): {
-            'public_address': databag.get_remote('public-address'),
-            'private_address': databag.get_remote('private_address'),
-            'unit_name': databag.get_remote('unit_name'),
-            }}
 
 
 def remove_unit_from_cache(self, unit_name):
