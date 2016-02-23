@@ -105,6 +105,7 @@ def configure_etcd():
         cluster_data['leader_address'] = unit_get('private-address')
         # Actually broadcast that gnarly dictionary
         leader_set(cluster_data)
+        # leader assumes new? seems to work.
         cluster_data['cluster_state'] = 'new'
     else:
         cluster_data = {'private_address': unit_get('private-address')}
@@ -132,7 +133,5 @@ def service_messaging():
         etcd so I know who the MVP is. This method reflects that. '''
     if is_leader():
         status_set('active', 'Etcd leader running')
-    # else:
-    #     etcd = EtcdHelper()
-    #     status_message = etcd.cluster_status_output()
-    #     status_set('active', status_message)
+    else:
+        status_set('active', 'Etcd follower running')
