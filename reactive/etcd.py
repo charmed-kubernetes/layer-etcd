@@ -16,7 +16,7 @@ from charmhelpers.core import host
 from charmhelpers.core import templating
 
 from etcd import EtcdHelper
-
+from subprocess import CalledProcessError
 
 @hook('config-changed')
 def remove_states():
@@ -56,10 +56,11 @@ def cluster_update(cluster):
         remove_state('cluster.joining')
 
 
+
+
 @when('cluster.departed')
 def remove_unit_from_cluster(cluster):
     etcd = EtcdHelper()
-    log('**CLUSTER_DEPARTED**: Removing peer from cache: {}'.format(cluster.unit_name))
     etcd.remove_unit_from_cache(cluster.unit_name)
     # trigger template and service restart
     remove_state('etcd.configured')
@@ -106,6 +107,8 @@ def configure_etcd():
         leader_set(cluster_data)
         cluster_data['cluster_state'] = 'new'
     else:
+        cluster_data = {'private_address': unit_get('private-address')}
+        cluster_data['unit_name'] = etcd_helper.unit_name
         cluster_data['token'] = leader_get('token')
         cluster_data['cluster_state'] = leader_get('cluster_state')
         cluster_data['cluster'] = etcd_helper.cluster_string()
@@ -129,7 +132,7 @@ def service_messaging():
         etcd so I know who the MVP is. This method reflects that. '''
     if is_leader():
         status_set('active', 'Etcd leader running')
-    else:
-        etcd = EtcdHelper()
-        status_message = etcd.cluster_status_output()
-        status_set('active', status_message)
+    # else:
+    #     etcd = EtcdHelper()
+    #     status_message = etcd.cluster_status_output()
+    #     status_set('active', status_message)
