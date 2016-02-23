@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+PRIVATE_ADDRESS=$(unit-get private-address)
+OUT=$(/opt/etcd/etcdctl -C http://${PRIVATE_ADDRESS}:4001 cluster-health)
+
+action-set result-map.message="${OUT}"
