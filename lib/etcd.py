@@ -115,13 +115,8 @@ class EtcdHelper:
                     }
         # De-dupe the data in the databag
         for k in unit:
-            if k not in cluster_data.keys():
-                cluster_data.update(unit)
-            else:
-                # this is potentially destructive
-                cluster_data[k] = unit[k]
-
-            self.db.set('etcd.cluster_data', cluster_data)
+            cluster_data[k] = unit[k]
+        self.db.set('etcd.cluster_data', cluster_data)
         return cluster_data
 
     def register(self, cluster_data):
