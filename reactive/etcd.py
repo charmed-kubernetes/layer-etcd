@@ -16,7 +16,7 @@ from charmhelpers.core import host
 from charmhelpers.core import templating
 
 from etcd import EtcdHelper
-from subprocess import CalledProcessError
+
 
 @hook('config-changed')
 def remove_states():
@@ -56,8 +56,6 @@ def cluster_update(cluster):
         remove_state('cluster.joining')
 
 
-
-
 @when('cluster.departed')
 def remove_unit_from_cluster(cluster):
     etcd = EtcdHelper()
@@ -66,6 +64,16 @@ def remove_unit_from_cluster(cluster):
     remove_state('etcd.configured')
     # end of peer-departing event
     remove_state('cluster.departed')
+
+
+@when('db.connected')
+def send_connection_details(client):
+    etcd = EtcdHelper()
+    data = etcd.cluster_data()
+    hosts = []
+    for unit in data:
+        hosts.append(data[unit]['private_address'])
+    client.provide_connection_string(hosts, config('port'))
 
 
 @hook('leader-settings-changed')

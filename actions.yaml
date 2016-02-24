@@ -1,0 +1,3 @@
+health:
+    description: Call the health of the cluster
+
