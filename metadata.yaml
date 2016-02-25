@@ -8,8 +8,6 @@ tags:
   - database
   - keystore
   - layer
-series:
-  - trusty
 subordinate: false
 provides:
   db:
