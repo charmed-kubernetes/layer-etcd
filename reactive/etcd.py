@@ -38,21 +38,30 @@ def remove_configuration_state():
     leader_set(cluster_data)
 
 
+@when('cluster.prepare_to_launch')
+def cluster_declaration(cluster):
+    etcd = EtcdHelper()
+    for unit in cluster.list_peers():
+        cluster.provide_cluster_details(scope=unit,
+                                        public_address=etcd.public_address,
+                                        port=etcd.port,
+                                        unit_name=etcd.unit_name)
+
+
 @when('cluster.joining')
 def cluster_update(cluster):
     '''' Runs on cluster "disturbed" mode. Each unit is declaring their
          participation. If you're not the leader, you can ignore this'''
-    etcd_helper = EtcdHelper()
-    unit = {cluster.unit_name(): {
-            'public_address': cluster.public_address(),
-            'private_address': cluster.private_address(),
-            'unit_name': cluster.unit_name()}}
-    # Store data about every peer we have seen. this may be useful later
-    etcd_helper.cluster_data(unit)
+    etcd = EtcdHelper()
+    etcd.cluster_data({cluster.unit_name():
+                       {'private_address': cluster.private_address(),
+                        'public_address': cluster.public_address(),
+                        'unit_name': cluster.unit_name()}})
+
     remove_state('etcd.configured')
     if is_leader():
         # store and leader-set the new cluster string
-        leader_set({'cluster': etcd_helper.cluster_string()})
+        leader_set({'cluster': etcd.cluster_string()})
         remove_state('cluster.joining')
 
 
