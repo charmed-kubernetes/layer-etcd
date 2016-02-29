@@ -38,7 +38,7 @@ def remove_configuration_state():
     leader_set(cluster_data)
 
 
-@when('cluster.prepare_to_launch')
+@when('cluster.declare_self')
 def cluster_declaration(cluster):
     etcd = EtcdHelper()
     for unit in cluster.list_peers():
@@ -46,6 +46,8 @@ def cluster_declaration(cluster):
                                         public_address=etcd.public_address,
                                         port=etcd.port,
                                         unit_name=etcd.unit_name)
+
+    remove_state('cluster.declare_self')
 
 
 @when('cluster.joining')
@@ -58,11 +60,12 @@ def cluster_update(cluster):
                         'public_address': cluster.public_address(),
                         'unit_name': cluster.unit_name()}})
 
-    remove_state('etcd.configured')
     if is_leader():
         # store and leader-set the new cluster string
         leader_set({'cluster': etcd.cluster_string()})
-        remove_state('cluster.joining')
+
+    remove_state('etcd.configured')
+    remove_state('cluster.joining')
 
 
 @when('cluster.departed')
