@@ -1,2 +1,2 @@
-includes: ['layer:basic', 'interface:etcd', 'interface:etcd-cluster']
+includes: ['layer:basic', 'interface:etcd']
 exclude: ['Makefile']

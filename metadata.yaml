@@ -14,4 +14,4 @@ provides:
     interface: etcd
 peers:
   cluster:
-    interface: etcd-cluster
+    interface: etcd
