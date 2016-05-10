@@ -1,12 +1,4 @@
 options:
-  source-url:
-    type: string
-    default: https://github.com/coreos/etcd/releases/download/v2.2.3/etcd-v2.2.3-linux-amd64.tar.gz
-    description: Location of etcd binary release to fetch
-  source-sum:
-    type: string
-    default: 208d5f05f1ef2715198904f46c7fde3f9b7bdec6
-    description: SHA1 Sum of etcd binary release
   port:
     type: int
     default: 4001

@@ -16,9 +16,7 @@ from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
 
 from charmhelpers.core import unitdata
-from charmhelpers import fetch
 from os import getenv
-from path import path
 import random
 from shlex import split
 import string
@@ -58,23 +56,6 @@ class EtcdHelper:
         '''
         chars = string.ascii_uppercase + string.digits
         return ''.join(random.choice(chars) for _ in range(size))
-
-    def fetch_and_install(self, source, sha):
-        unpack = fetch.install_remote(source, 'fetched', sha)
-
-        # Copy the payload into place on the system
-        etcd_dir = path('/opt/etcd').makedirs_p(mode=755)
-        unpack_dir = path(unpack)
-        for d in unpack_dir.dirs():
-            d = path(d)
-            for f in d.files():
-                f.copy(etcd_dir)
-
-        for executable in "etcd", "etcdctl":
-            origin = etcd_dir / executable
-            target = path('/usr/local/bin/%s' % executable)
-            target.exists() and target.remove()
-            origin.symlink(target)
 
     def cluster_string(self, proto='http', internal=True):
         ''' This method behaves slightly different depending on the
