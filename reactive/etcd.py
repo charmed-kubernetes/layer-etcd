@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 
 from charms.reactive import when
 from charms.reactive import when_not
@@ -9,22 +10,28 @@ from charmhelpers.core.hookenv import status_set
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
+from charmhelpers.core.hookenv import resource_get
 
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core import host
 from charmhelpers.core import templating
+from charmhelpers.fetch import apt_update
+from charmhelpers.fetch import apt_install
 
 from etcd import EtcdHelper
+from pwd import getpwnam
+from subprocess import check_call
+from shlex import split
+
+import os
 
 
-@hook('config-changed')
+@hook('upgrade-charm')
 def remove_states():
-    # Matt - this is where it's not immutable :)
-    cfg = config()
-    if cfg.changed('source-sum') or cfg.changed('source-url'):
-        remove_state('etcd.installed')
-        remove_state('etcd.configured')
+    # upgrade-charm issues when we rev resources and the charm. Assume an upset
+    remove_state('etcd.installed')
+    remove_state('etcd.configured')
 
 
 @hook('leader-elected')
@@ -97,13 +104,41 @@ def update_cluster_string():
 
 @when_not('etcd.installed')
 def install_etcd():
-    source = config('source-url')
-    sha = config('source-sum')
-
     status_set('maintenance', 'Installing etcd.')
-    etcd_helper = EtcdHelper()
-    etcd_helper.fetch_and_install(source, sha)
-    set_state('etcd.installed')
+
+    codename = host.lsb_release()['DISTRIB_CODENAME']
+
+    etcd_path = resource_get('etcd')
+    etcdctl_path = resource_get('etcdctl')
+
+    if not etcd_path or not etcdctl_path:
+        if codename == 'xenial':
+            # edge case where archive allows us a nice fallback on xenial
+            status_set('maintenance', 'Attempting install of etcd from apt')
+            pkg_list = ['etcd']
+            apt_update()
+            apt_install(pkg_list, fatal=True)
+            set_state('etcd.installed')
+            return
+        else:
+            # edge case
+            status_set('blocked', 'Missing Resource: see README')
+    else:
+        install(etcd_path, '/usr/local/bin/etcd')
+        install(etcdctl_path, '/usr/local/bin/etcdctl')
+
+        host.add_group('etcd')
+
+        if not host.user_exists('etcd'):
+            host.adduser('etcd')
+            host.add_user_to_group('etcd', 'etcd')
+
+        os.makedirs('/var/lib/etcd/', exist_ok=True)
+        etcd_uid = getpwnam('etcd').pw_uid
+
+        os.chmod('/var/lib/etcd/', 0o775)
+        os.chown('/var/lib/etcd/', etcd_uid, -1)
+        set_state('etcd.installed')
 
 
 @when('etcd.installed')
@@ -112,13 +147,14 @@ def configure_etcd():
     etcd_helper = EtcdHelper()
     cluster_data = {'private_address': unit_get('private-address')}
     cluster_data['unit_name'] = etcd_helper.unit_name
+    cluster_data['management_port'] = config('management_port')
+    cluster_data['port'] = config('port')
     # The leader broadcasts the cluster settings, as the leader controls the
     # state of the cluster. This assumes the leader is always initializing new
     # clusters, and may need to be adapted later to support existing cluster
     # states.
     if is_leader():
         status_set('maintenance', "I am the leader, configuring single node")
-        etcd_helper = EtcdHelper()
         cluster_data['token'] = etcd_helper.cluster_token()
         cluster_data['cluster_state'] = 'existing'
         cluster_data['cluster'] = etcd_helper.cluster_string()
@@ -128,20 +164,26 @@ def configure_etcd():
         # leader assumes new? seems to work.
         cluster_data['cluster_state'] = 'new'
     else:
-        cluster_data = {'private_address': unit_get('private-address')}
-        cluster_data['unit_name'] = etcd_helper.unit_name
+        status_set('maintenance', 'registering unit with etcd-leader')
         cluster_data['token'] = leader_get('token')
         cluster_data['cluster_state'] = leader_get('cluster_state')
         cluster_data['cluster'] = etcd_helper.cluster_string()
         cluster_data['leader_address'] = leader_get('leader_address')
-        status_set('maintenance', 'registering unit with etcd-leader')
         # self registration provided via the helper class
         etcd_helper.register(cluster_data)
 
     # Always nuking and regenerating this script.. perhaps this should
     # move to a @when_modified decorated method.
-    templating.render('upstart', '/etc/init/etcd.conf',
-                      cluster_data, owner='root', group='root')
+    codename = host.lsb_release()['DISTRIB_CODENAME']
+    if codename == 'trusty':
+        templating.render('upstart', '/etc/init/etcd.conf',
+                          cluster_data, owner='root', group='root')
+    else:
+        # render systemd
+        templating.render('systemd', 'files/systemd/etcd.service',
+                          cluster_data, owner='root', group='root')  # noqa
+        os.symlink('files/systemd/etcd.service',
+                   '/etc/systemd/system/multi-user.target.wants/etcd.service')
 
     host.service('restart', 'etcd')
     set_state('etcd.configured')
@@ -155,3 +197,8 @@ def service_messaging():
         status_set('active', 'Etcd leader running')
     else:
         status_set('active', 'Etcd follower running')
+
+
+def install(src, tgt):
+    ''' This method wraps the bash 'install' command '''
+    return check_call(split('install {} {}'.format(src, tgt)))

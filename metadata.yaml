@@ -11,6 +11,16 @@ tags:
 series:
   - trusty
   - xenial
+min-juju-version: 2.0-beta6
+resources:
+  etcd:
+    type: file
+    filename: etcd
+    description: Etcd binary release
+  etcdctl:
+    type: file
+    filename: etcdctl
+    description: Etcdctl binary release
 subordinate: false
 provides:
   db:

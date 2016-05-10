@@ -8,12 +8,16 @@ limit nofile 20000 20000
 
 kill timeout 60 # wait 60s between SIGTERM and SIGKILL.
 
-exec /opt/etcd/etcd \
-    --initial-advertise-peer-urls http://{{private_address}}:7001 \
-    --listen-peer-urls http://{{private_address}}:7001 \
-    --listen-client-urls http://127.0.0.1:4001,http://{{private_address}}:4001 \
-    --advertise-client-urls http://{{private_address}}:4001 \
-    --initial-cluster-token {{token}} \
-    --initial-cluster-state {{cluster_state}} \
-    --initial-cluster={{cluster}} \
-    --data-dir="/opt/etcd/var" --name="{{unit_name}}"
+setuid etcd
+setgid etcd
+
+exec /usr/local/bin/etcd \
+    --initial-advertise-peer-urls http://{{ private_address }}:{{ management_port }} \
+    --listen-peer-urls http://{{ private_address }}:{{ management_port }} \
+    --listen-client-urls http://127.0.0.1:{{ port }},http://{{private_address}}:{{ port }} \
+    --advertise-client-urls http://{{private_address}}:{{ port }} \
+    --initial-cluster-token {{ token }} \
+    --initial-cluster-state {{ cluster_state }} \
+    --initial-cluster={{ cluster }} \
+    --data-dir="/var/lib/etcd/" \
+    --name="{{ unit_name }}"
