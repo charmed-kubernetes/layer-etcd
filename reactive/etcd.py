@@ -22,6 +22,7 @@ from charmhelpers.fetch import apt_install
 from etcd import EtcdHelper
 from pwd import getpwnam
 from subprocess import check_call
+from subprocess import CalledProcessError
 from shlex import split
 
 import os
@@ -138,6 +139,18 @@ def install_etcd():
 
         os.chmod('/var/lib/etcd/', 0o775)
         os.chown('/var/lib/etcd/', etcd_uid, -1)
+
+        if not os.path.exists('/etc/systemd/system/etcd.service'):
+            templating.render('systemd', '/etc/systemd/system/etcd.service',
+                              {}, owner='root', group='root')
+            # This will cause some greif if its been run before
+            # so allow it to be chatty and fail if we ever re-render
+            # and attempt re-enablement.
+            try:
+                check_call(split('systemctl enable etcd'))
+            except CalledProcessError:
+                pass
+
         set_state('etcd.installed')
 
 
@@ -177,13 +190,8 @@ def configure_etcd():
         templating.render('upstart', '/etc/init/etcd.conf',
                           cluster_data, owner='root', group='root')
     else:
-        # render systemd
-        templating.render('systemd', '/etc/systemd/system/etcd.service',
-                          cluster_data, owner='root', group='root')  # noqa
         templating.render('defaults', '/etc/default/etcd',
                           cluster_data, owner='root', group='root')
-        # Enable service restart on host reboot
-        check_call(split('systemctl enable etcd'))
 
     host.service('restart', 'etcd')
     set_state('etcd.configured')

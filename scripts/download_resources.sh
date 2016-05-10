@@ -2,7 +2,6 @@
 
 set -e
 
-#!/bin/bash
 mkdir -p $(pwd)/resources
 
 while IFS="|" read app version file url checksum
