@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from charms.reactive import when
+from charms.reactive import when_any
 from charms.reactive import when_not
 from charms.reactive import set_state
 from charms.reactive import remove_state
@@ -14,6 +15,7 @@ from charmhelpers.core.hookenv import resource_get
 
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import unit_get
+from charmhelpers.core.hookenv import log
 from charmhelpers.core import host
 from charmhelpers.core import templating
 from charmhelpers.fetch import apt_update
@@ -44,6 +46,11 @@ def remove_configuration_state():
     cluster_data['cluster'] = etcd_helper.cluster_string()
     cluster_data['leader_address'] = unit_get('private-address')
     leader_set(cluster_data)
+
+
+@when_any('config.port.changed', 'config.management_port.changed')
+def update_port_mappings():
+    remove_state('etcd.configured')
 
 
 @when('cluster.declare_self')
@@ -165,6 +172,7 @@ def install_etcd():
 
 
 @when('etcd.installed')
+@when('tls.server.certificate available')
 @when_not('etcd.configured')
 def configure_etcd():
     etcd_helper = EtcdHelper()
@@ -215,6 +223,33 @@ def service_messaging():
         status_set('active', 'Etcd leader running')
     else:
         status_set('active', 'Etcd follower running')
+
+
+@when('easyrsa installed')
+@when_not('etcd.tls.opensslconfig.modified')
+def inject_swarm_tls_template():
+    """
+    layer-tls installs a default OpenSSL Configuration that is incompatibile
+    with how etcd expects TLS keys to be generated. We will append what
+    we need to the x509-type, and poke layer-tls to regenerate.
+    """
+    if is_leader():
+        status_set('maintenance', 'Reconfiguring SSL PKI configuration')
+
+        log('Updating EasyRSA3 OpenSSL Config')
+        openssl_config = 'easy-rsa/easyrsa3/x509-types/server'
+
+        with open(openssl_config, 'r') as f:
+            existing_template = f.readlines()
+
+        # use list comprehension to enable clients,server usage for
+        # certificate with the docker/swarm daemons.
+        xtype = [w.replace('serverAuth', 'serverAuth, clientAuth') for w in existing_template]  # noqa
+        with open(openssl_config, 'w+') as f:
+            f.writelines(xtype)
+
+        set_state('etcd.tls.opensslconfig.modified')
+        set_state('easyrsa configured')
 
 
 def install(src, tgt):
