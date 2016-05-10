@@ -11,7 +11,7 @@ kill timeout 60 # wait 60s between SIGTERM and SIGKILL.
 setuid etcd
 setgid etcd
 
-exec /usr/local/bin/etcd \
+exec /usr/bin/etcd \
     --initial-advertise-peer-urls http://{{ private_address }}:{{ management_port }} \
     --listen-peer-urls http://{{ private_address }}:{{ management_port }} \
     --listen-client-urls http://127.0.0.1:{{ port }},http://{{private_address}}:{{ port }} \

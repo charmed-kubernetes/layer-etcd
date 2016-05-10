@@ -124,8 +124,8 @@ def install_etcd():
             # edge case
             status_set('blocked', 'Missing Resource: see README')
     else:
-        install(etcd_path, '/usr/local/bin/etcd')
-        install(etcdctl_path, '/usr/local/bin/etcdctl')
+        install(etcd_path, '/usr/bin/etcd')
+        install(etcdctl_path, '/usr/bin/etcdctl')
 
         host.add_group('etcd')
 
@@ -180,10 +180,12 @@ def configure_etcd():
                           cluster_data, owner='root', group='root')
     else:
         # render systemd
-        templating.render('systemd', 'files/systemd/etcd.service',
+        templating.render('systemd', '/etc/systemd/system/etcd.service',
                           cluster_data, owner='root', group='root')  # noqa
-        os.symlink('files/systemd/etcd.service',
-                   '/etc/systemd/system/multi-user.target.wants/etcd.service')
+        templating.render('defaults', '/etc/default/etcd',
+                          cluster_data, owner='root', group='root')
+        # Enable service restart on host reboot
+        check_call(split('systemctl enable etcd'))
 
     host.service('restart', 'etcd')
     set_state('etcd.configured')
