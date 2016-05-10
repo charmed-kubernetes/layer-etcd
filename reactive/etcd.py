@@ -172,8 +172,6 @@ def configure_etcd():
         # self registration provided via the helper class
         etcd_helper.register(cluster_data)
 
-    # Always nuking and regenerating this script.. perhaps this should
-    # move to a @when_modified decorated method.
     codename = host.lsb_release()['DISTRIB_CODENAME']
     if codename == 'trusty':
         templating.render('upstart', '/etc/init/etcd.conf',
