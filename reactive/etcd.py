@@ -18,14 +18,16 @@ from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import log
 from charmhelpers.core import host
 from charmhelpers.core import templating
+from charmhelpers.core import unitdata
 from charmhelpers.fetch import apt_update
 from charmhelpers.fetch import apt_install
 
 from etcd import EtcdHelper
 from pwd import getpwnam
+from shlex import split
+from shutil import copyfile
 from subprocess import check_call
 from subprocess import CalledProcessError
-from shlex import split
 
 import os
 
@@ -151,6 +153,10 @@ def install_etcd():
         os.chmod('/var/lib/etcd/', 0o775)
         os.chown('/var/lib/etcd/', etcd_uid, -1)
 
+        if codename == 'trusty':
+            set_state('etcd.installed')
+            return
+
         if not os.path.exists('/etc/systemd/system/etcd.service'):
             templating.render('systemd', '/etc/systemd/system/etcd.service',
                               {}, owner='root', group='root')
@@ -166,14 +172,29 @@ def install_etcd():
 
 
 @when('etcd.installed')
-@when('tls.server.certificate available')
+@when('etcd.ssl.placed')
 @when_not('etcd.configured')
 def configure_etcd():
+    ''' There's a lot going on in here. Minimally stating, we are gaging the
+    state of the world and broadcasting that if we are the leader. Otherwise we
+    are looking to leader data, and what we can get from config to generate our
+    services config during the registration sequence '''
+    # This library has some convience methods to generate cluster strings from
+    # relation data, and other 'helpers'. Use it to generate as much shared
+    # config as possible before we diverge for leader/follower
     etcd_helper = EtcdHelper()
     cluster_data = {'private_address': unit_get('private-address')}
     cluster_data['unit_name'] = etcd_helper.unit_name
     cluster_data['management_port'] = config('management_port')
     cluster_data['port'] = config('port')
+
+    # TLS - this is a relatively new concern, and i'd like to keep a
+    # close eye on it until this branch settles.
+    ssl_path = '/etc/ssl/etcd'
+    cluster_data['ca_certificate'] = '{}/ca.pem'.format(ssl_path)
+    cluster_data['server_certificate'] = '{}/server.pem'.format(ssl_path)
+    cluster_data['server_key'] = '{}/server-key.pem'.format(ssl_path)
+
     # The leader broadcasts the cluster settings, as the leader controls the
     # state of the cluster. This assumes the leader is always initializing new
     # clusters, and may need to be adapted later to support existing cluster
@@ -196,7 +217,8 @@ def configure_etcd():
         cluster_data['leader_address'] = leader_get('leader_address')
         # self registration provided via the helper class
         etcd_helper.register(cluster_data)
-
+    # Now that we have configured for the upset, lets render our environment
+    # details/files and prepare to do some work
     codename = host.lsb_release()['DISTRIB_CODENAME']
     if codename == 'trusty':
         templating.render('upstart', '/etc/init/etcd.conf',
@@ -207,6 +229,34 @@ def configure_etcd():
 
     host.service('restart', 'etcd')
     set_state('etcd.configured')
+
+
+@when('tls.server.certificate available')
+@when_not('etcd.ssl.placed')
+def install_etcd_certificates():
+    etcd_ssl_path = '/etc/ssl/etcd'
+    if not os.path.exists(etcd_ssl_path):
+        os.makedirs(etcd_ssl_path)
+
+    kv = unitdata.kv()
+    cert = kv.get('tls.server.certificate')
+    with open('{}/server.pem'.format(etcd_ssl_path), 'w+') as f:
+        f.write(cert)
+    with open('{}/ca.pem'.format(etcd_ssl_path), 'w+') as f:
+        f.write(leader_get('certificate_authority'))
+
+    # schenanigans - each server makes its own key, when generating
+    # the CSR. This is why its "magically" present.
+    keypath = 'easy-rsa/easyrsa3/pki/private/{}.key'
+    server = os.getenv('JUJU_UNIT_NAME').replace('/', '_')
+    if os.path.exists(keypath.format(server)):
+        copyfile(keypath.format(server),
+                 '{}/server-key.pem'.format(etcd_ssl_path))
+    else:
+        copyfile(keypath.format(unit_get('public-address')),
+                 '{}/server-key.pem'.format(etcd_ssl_path))
+
+    set_state('etcd.ssl.placed')
 
 
 @when('etcd.configured')
