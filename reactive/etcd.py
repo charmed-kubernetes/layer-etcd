@@ -109,8 +109,12 @@ def install_etcd():
 
     codename = host.lsb_release()['DISTRIB_CODENAME']
 
-    etcd_path = resource_get('etcd')
-    etcdctl_path = resource_get('etcdctl')
+    try:
+        etcd_path = resource_get('etcd')
+        etcdctl_path = resource_get('etcdctl')
+    except NotImplementedError:
+        status_set('blocked', 'This charm requires the resource feature available in juju 2+')  # noqa
+        return
 
     if not etcd_path or not etcdctl_path:
         if codename == 'xenial':
