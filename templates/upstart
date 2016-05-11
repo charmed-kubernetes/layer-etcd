@@ -12,9 +12,17 @@ setuid etcd
 setgid etcd
 
 exec /usr/bin/etcd \
+    --cert-file={{ server_certificate }} \
+    --key-file={{ server_key }} \
+    --trusted-ca-file={{ ca_certificate }} \
+    --client-cert-auth=true \
+    --peer-cert-file={{ server_certificate }} \
+    --peer-key-file={{ server_key }} \
+    --peer-trusted-ca-file={{ ca_certificate }} \
+    --peer-client-cert-auth=true \
     --initial-advertise-peer-urls http://{{ private_address }}:{{ management_port }} \
     --listen-peer-urls http://{{ private_address }}:{{ management_port }} \
-    --listen-client-urls http://127.0.0.1:{{ port }},http://{{private_address}}:{{ port }} \
+    --listen-client-urls http://127.0.0.1:4001,http://{{private_address}}:{{ port }} \
     --advertise-client-urls http://{{private_address}}:{{ port }} \
     --initial-cluster-token {{ token }} \
     --initial-cluster-state {{ cluster_state }} \
