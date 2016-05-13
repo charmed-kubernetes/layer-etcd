@@ -57,7 +57,7 @@ class EtcdHelper:
         chars = string.ascii_uppercase + string.digits
         return ''.join(random.choice(chars) for _ in range(size))
 
-    def cluster_string(self, proto='http', internal=True):
+    def cluster_string(self, proto='https', internal=True):
         ''' This method behaves slightly different depending on the
             context of its invocation. If the unit is the leader, the
             connection string should always be built and returned from
@@ -117,12 +117,13 @@ class EtcdHelper:
             etcd leader unit to declare the units intent to join the cluster.
         '''
         if not self.db.get('registered'):
-            command = "etcdctl -C http://{}:{} member add {}" \
-                      " http://{}:{}".format(cluster_data['leader_address'],
-                                             self.port,
-                                             cluster_data['unit_name'],
-                                             self.private_address,
-                                             self.management_port)
+            command = "etcdctl -C https://{}:{} {} member add {}" \
+                      " https://{}:{}".format(cluster_data['leader_address'],
+                                              self.port,
+                                              append_ssl_certs(),
+                                              cluster_data['unit_name'],
+                                              self.private_address,
+                                              self.management_port)
             try:
                 check_call(split(command))
                 self.db.set('registered', True)
@@ -131,11 +132,12 @@ class EtcdHelper:
 
     def unregister(self, cluster_data):
         # this wont work, it needs to be etcdctl member remove {{GUID}}
-        command = "etcdctl -C http://{}:{} member remove {}" \
-                  " http://{}:{}".format(cluster_data['leader_address'],
-                                         config('port'),
-                                         cluster_data['private_address'],
-                                         config('management_port'))
+        command = "etcdctl -C https://{}:{} {} member remove {}" \
+                  " https://{}:{}".format(cluster_data['leader_address'],
+                                          config('port'),
+                                          append_ssl_certs(),
+                                          cluster_data['private_address'],
+                                          config('management_port'))
         check_call(split(command))
 
 
@@ -151,3 +153,9 @@ def remove_unit_from_cache(self, unit_name):
     # update with the removed unit
     self.db.set('etcd.cluster_data', cluster_data)
     return cluster_data
+
+
+def append_ssl_certs():
+    return "--cert-file=/etc/ssl/etcd/server.pem " \
+           "--key-file=/etc/ssl/etcd/server-key.pem " \
+           "--ca-file=/etc/ssl/etcd/ca.pem"

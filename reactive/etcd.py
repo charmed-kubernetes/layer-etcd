@@ -7,15 +7,16 @@ from charms.reactive import set_state
 from charms.reactive import remove_state
 from charms.reactive import hook
 
-from charmhelpers.core.hookenv import status_set
+from charmhelpers.core.hookenv import status_set as hess
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import resource_get
 
 from charmhelpers.core.hookenv import config
-from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import log
+from charmhelpers.core.hookenv import open_port
+from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core import host
 from charmhelpers.core import templating
 from charmhelpers.core import unitdata
@@ -50,8 +51,10 @@ def remove_configuration_state():
     leader_set(cluster_data)
 
 
-@when_any('config.port.changed', 'config.management_port.changed')
+@when_any('config.changed.port', 'config.changed.management_port')
 def update_port_mappings():
+    open_port(config('port'))
+    open_port(config('management_port'))
     remove_state('etcd.configured')
 
 
@@ -302,6 +305,24 @@ def inject_swarm_tls_template():
         set_state('easyrsa configured')
 
 
+@when_not('etcd.pillowmints')
+def render_default_user_ssl_exports():
+    with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
+        fp.writelines(['export ETCDCTL_KEY_FILE=/etc/ssl/etcd/server-key.pem\n',  # noqa
+                       'export ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem\n',
+                       'export ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem\n'])
+
+    set_state('etcd.pillowmints')
+
+
 def install(src, tgt):
     ''' This method wraps the bash 'install' command '''
     return check_call(split('install {} {}'.format(src, tgt)))
+
+
+def status_set(status, message):
+    ''' This is a fun little hack to give me the leader in status output
+        without taking it over '''
+    if is_leader():
+        message = "* {}".format(message)
+    hess(status, message)
