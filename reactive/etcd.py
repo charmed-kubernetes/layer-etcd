@@ -33,6 +33,15 @@ from subprocess import CalledProcessError
 import os
 
 
+@hook('update-status')
+def check_cluster_health():
+    # We have an opportunity to report on the cluster health every 5
+    # minutes, lets leverage that.
+    etcd_helper = EtcdHelper()
+    health = etcd_helper.get_cluster_health_output()
+    status_set('active', health)
+
+
 @hook('upgrade-charm')
 def remove_states():
     # upgrade-charm issues when we rev resources and the charm. Assume an upset
@@ -266,16 +275,6 @@ def install_etcd_certificates():
                  '{}/server-key.pem'.format(etcd_ssl_path))
 
     set_state('etcd.ssl.placed')
-
-
-@when('etcd.configured')
-def service_messaging():
-    ''' I really like seeing the leadership status as my default message for
-        etcd so I know who the MVP is. This method reflects that. '''
-    if is_leader():
-        status_set('active', 'Etcd leader running')
-    else:
-        status_set('active', 'Etcd follower running')
 
 
 @when('easyrsa installed')
