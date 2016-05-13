@@ -33,7 +33,7 @@ from subprocess import CalledProcessError
 import os
 
 
-@hook('update-status')
+@when('etcd.configured')
 def check_cluster_health():
     # We have an opportunity to report on the cluster health every 5
     # minutes, lets leverage that.
@@ -165,7 +165,10 @@ def install_etcd():
         os.chmod('/var/lib/etcd/', 0o775)
         os.chown('/var/lib/etcd/', etcd_uid, -1)
 
+        # Trusty was the EOL for upstart, render its template if required
         if codename == 'trusty':
+            templating.render('upstart', '/etc/init/etcd.conf',
+                              {}, owner='root', group='root')
             set_state('etcd.installed')
             return
 
@@ -231,13 +234,9 @@ def configure_etcd():
         etcd_helper.register(cluster_data)
     # Now that we have configured for the upset, lets render our environment
     # details/files and prepare to do some work
-    codename = host.lsb_release()['DISTRIB_CODENAME']
-    if codename == 'trusty':
-        templating.render('upstart', '/etc/init/etcd.conf',
-                          cluster_data, owner='root', group='root')
-    else:
-        templating.render('defaults', '/etc/default/etcd',
-                          cluster_data, owner='root', group='root')
+
+    templating.render('defaults', '/etc/default/etcd',
+                      cluster_data, owner='root', group='root')
 
     host.service('restart', 'etcd')
     set_state('etcd.configured')
@@ -317,5 +316,5 @@ def status_set(status, message):
     ''' This is a fun little hack to give me the leader in status output
         without taking it over '''
     if is_leader():
-        message = "* {}".format(message)
+        message = "(leader) {}".format(message)
     hess(status, message)
