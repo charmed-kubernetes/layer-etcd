@@ -144,6 +144,14 @@ def install_etcd():
             pkg_list = ['etcd']
             apt_update()
             apt_install(pkg_list, fatal=True)
+            # Stop the service and remove the defaults
+            # I hate that I have to do this. Sorry short-lived local data #RIP
+            # State control is to prevent upgrade-charm from nuking cluster
+            # data.
+            if not is_state('etcd.package.adjusted'):
+                host.service('stop', 'etcd')
+                rmtree('/var/lib/etcd/')
+                set_state('etcd.package.adjusted')
             set_state('etcd.installed')
             return
         else:
