@@ -3,6 +3,7 @@
 from charms.reactive import when
 from charms.reactive import when_any
 from charms.reactive import when_not
+from charms.reactive import is_state
 from charms.reactive import set_state
 from charms.reactive import remove_state
 from charms.reactive import hook
@@ -27,8 +28,10 @@ from etcd import EtcdHelper
 from pwd import getpwnam
 from shlex import split
 from shutil import copyfile
+from shutil import rmtree
 from subprocess import check_call
 from subprocess import CalledProcessError
+from tlslib import client_cert
 
 import os
 
@@ -124,6 +127,32 @@ def update_cluster_string():
     remove_state('etcd.configured')
 
 
+@when('etcd.ssl.placed')
+@when_not('client-credentials-relayed')
+def relay_client_credentials():
+
+    # offer a short circuit if we have already received broadcast
+    # credentials for the cluster
+    if leader_get('client_certificate') and leader_get('client_key'):
+        with open('client.crt', 'w+') as fp:
+            fp.write(leader_get('client_certificate'))
+        with open('client.key', 'w+') as fp:
+            fp.write(leader_get('client_key'))
+        set_state('client-credentials-relayed')
+        return
+
+    if is_leader():
+        charm_dir = os.getenv('CHARM_DIR')
+        client_cert(charm_dir)
+        with open('client.crt') as fp:
+            client_certificate = fp.read()
+        with open('client.key') as fp:
+            client_key = fp.read()
+        leader_set({'client_certificate': client_certificate,
+                    'client_key': client_key})
+        set_state('client-credentials-relayed')
+
+
 @when_not('etcd.installed')
 def install_etcd():
     status_set('maintenance', 'Installing etcd.')
@@ -150,7 +179,7 @@ def install_etcd():
             # data.
             if not is_state('etcd.package.adjusted'):
                 host.service('stop', 'etcd')
-                rmtree('/var/lib/etcd/')
+                rmtree('/var/lib/etcd/default')
                 set_state('etcd.package.adjusted')
             set_state('etcd.installed')
             return
@@ -281,11 +310,11 @@ def install_etcd_certificates():
 @when('easyrsa installed')
 @when_not('etcd.tls.opensslconfig.modified')
 def inject_swarm_tls_template():
-    """
+    '''
     layer-tls installs a default OpenSSL Configuration that is incompatibile
     with how etcd expects TLS keys to be generated. We will append what
     we need to the x509-type, and poke layer-tls to regenerate.
-    """
+    '''
     if is_leader():
         status_set('maintenance', 'Reconfiguring SSL PKI configuration')
 
@@ -307,11 +336,16 @@ def inject_swarm_tls_template():
 
 @when_not('etcd.pillowmints')
 def render_default_user_ssl_exports():
-    with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
-        fp.writelines(['export ETCDCTL_KEY_FILE=/etc/ssl/etcd/server-key.pem\n',  # noqa
-                       'export ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem\n',
-                       'export ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem\n'])
+    ''' Add secure credentials to default user environment configs,
+    transparently adding TLS '''
+    evars = ['export ETCDCTL_KEY_FILE=/etc/ssl/etcd/server-key.pem\n',  # noqa
+             'export ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem\n',
+             'export ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem\n']
 
+    with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
+        fp.writelines(evars)
+    with open('/root/.bash_aliases', 'w+') as fp:
+        fp.writelines(evars)
     set_state('etcd.pillowmints')
 
 
