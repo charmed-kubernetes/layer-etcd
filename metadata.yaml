@@ -25,6 +25,8 @@ subordinate: false
 provides:
   db:
     interface: etcd
+  proxy:
+    interface: etcd-proxy
 peers:
   cluster:
     interface: etcd

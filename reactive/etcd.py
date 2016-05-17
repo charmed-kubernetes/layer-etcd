@@ -96,6 +96,12 @@ def send_connection_details(client):
     client.provide_connection_string(hosts, config('port'))
 
 
+@when('proxy.connected')
+def send_cluster_details(proxy):
+    etcd = EtcdHelper()
+    proxy.provide_cluster_string(etcd.cluster_string())
+
+
 @hook('leader-settings-changed')
 def update_cluster_string():
     # When the leader makes a broadcast, assume an upset and prepare for
