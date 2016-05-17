@@ -34,6 +34,14 @@ Its recommended to run an odd number of machines as it has greater redundancy
 than even number (ie. with 4, you can lose 1 before quorum is lost, where as
 with 5, you can lose 2).
 
+### Notes about cluster turn-up
+
+The Etcd charm initializes a cluster using the Static configuration: which
+is the most "flexible" of all the installation options, considering it allows
+Etcd to be self-discovering using the peering relationships provided by
+Juju. Trying to start up etcd behind the corporate firewall? Thanks to
+resources, the charm is now completely stand alone, and supports this.
+
 # The charm told me to see the README
 
 You've been directed here because you're deploying this etcd charm onto a
@@ -129,15 +137,6 @@ export ETCDCTL_CA_FILE=$(pwd)/ca.pem
 export ETCDCTL_ENDPOINT=https://{ip of etcd host}:2379
 etcdctl member list
 ```
-
-### Notes about cluster turn-up
-
-The Etcd charm initializes a cluster using the Static configuration: which
-is the most "flexible" of all the installation options, considering it allows
-Etcd to be self-discovering using the peering relationships provided by
-Juju. Trying to start up etcd behind the corporate firewall? Thanks to
-resources, the charm is now completely stand alone, and supports this.
-
 
 
 # Known Limitations
