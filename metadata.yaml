@@ -1,16 +1,18 @@
 name: etcd
-summary: ETCD charm layer
+summary: Deploy a TLS terminated ETCD Cluster
 maintainers:
     - Charles Butler <charles.butler@canonical.com>
 description: |
-  A minimalist layer to deliver ETCD as a service
+  This charm supports deploying Etcd from the upstream binaries with resources.
+  It will also TLS wrap your service, and distribute client keys to any service
+  connecting. Etcd is a highly available key/value store.
 tags:
   - database
   - keystore
   - layer
 series:
-  - trusty
   - xenial
+  - trusty
 min-juju-version: 2.0-beta6
 resources:
   etcd:

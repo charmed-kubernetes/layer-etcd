@@ -1,30 +1,29 @@
-# This entire file needs formatted and abstracted into a class
-
-# In the older etcd charm there is 2 definite sets of data structures being
-# used. This is an attempt to simplify to just:
-#
-# {etcd1: {
-#         'public_address': 127.0.0.1,
-#         'private_address': 127.0.0.1,
-#         'unit_name': etcd1)
-#         }}
-
 from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
-
 from charmhelpers.core import unitdata
 from os import getenv
-import random
 from shlex import split
-import string
 from subprocess import check_call
+from subprocess import check_output
 from subprocess import CalledProcessError
+
+import string
+import random
+import os
 
 
 class EtcdHelper:
+    # In the older etcd charm there is 2 definite sets of data structures being
+    # used. This is an attempt to simplify to just:
+    #
+    # {etcd1: {
+    #         'public_address': 127.0.0.1,
+    #         'private_address': 127.0.0.1,
+    #         'unit_name': etcd1)
+    #         }}
 
     def __init__(self):
         self.db = unitdata.kv()
@@ -57,7 +56,7 @@ class EtcdHelper:
         chars = string.ascii_uppercase + string.digits
         return ''.join(random.choice(chars) for _ in range(size))
 
-    def cluster_string(self, proto='http', internal=True):
+    def cluster_string(self, proto='https', internal=True):
         ''' This method behaves slightly different depending on the
             context of its invocation. If the unit is the leader, the
             connection string should always be built and returned from
@@ -117,12 +116,13 @@ class EtcdHelper:
             etcd leader unit to declare the units intent to join the cluster.
         '''
         if not self.db.get('registered'):
-            command = "etcdctl -C http://{}:{} member add {}" \
-                      " http://{}:{}".format(cluster_data['leader_address'],
-                                             self.port,
-                                             cluster_data['unit_name'],
-                                             self.private_address,
-                                             self.management_port)
+            command = "etcdctl -C https://{}:{} {} member add {}" \
+                      " https://{}:{}".format(cluster_data['leader_address'],
+                                              self.port,
+                                              append_ssl_certs(),
+                                              cluster_data['unit_name'],
+                                              self.private_address,
+                                              self.management_port)
             try:
                 check_call(split(command))
                 self.db.set('registered', True)
@@ -131,12 +131,25 @@ class EtcdHelper:
 
     def unregister(self, cluster_data):
         # this wont work, it needs to be etcdctl member remove {{GUID}}
-        command = "etcdctl -C http://{}:{} member remove {}" \
-                  " http://{}:{}".format(cluster_data['leader_address'],
-                                         config('port'),
-                                         cluster_data['private_address'],
-                                         config('management_port'))
+        command = "etcdctl -C https://{}:{} {} member remove {}" \
+                  " https://{}:{}".format(cluster_data['leader_address'],
+                                          config('port'),
+                                          append_ssl_certs(),
+                                          cluster_data['private_address'],
+                                          config('management_port'))
         check_call(split(command))
+
+    def get_cluster_health_output(self):
+        os.environ['ETCDCTL_CA_FILE'] = '/etc/ssl/etcd/ca.pem'
+        os.environ['ETCDCTL_CERT_FILE'] = '/etc/ssl/etcd/server.pem'
+        os.environ['ETCDCTL_KEY_FILE'] = '/etc/ssl/etcd/server-key.pem'
+        cmd = "etcdctl cluster-health"
+        try:
+            raw = check_output(split(cmd))
+            out = raw.decode('ascii').strip('\n').split('\n')[-1]
+        except CalledProcessError:
+            out = "cluster-health check failed... needs attention"
+        return out
 
 
 def remove_unit_from_cache(self, unit_name):
@@ -151,3 +164,9 @@ def remove_unit_from_cache(self, unit_name):
     # update with the removed unit
     self.db.set('etcd.cluster_data', cluster_data)
     return cluster_data
+
+
+def append_ssl_certs():
+    return "--cert-file=/etc/ssl/etcd/server.pem " \
+           "--key-file=/etc/ssl/etcd/server-key.pem " \
+           "--ca-file=/etc/ssl/etcd/ca.pem"

@@ -1,31 +1,48 @@
 #!/usr/bin/python3
 
 from charms.reactive import when
+from charms.reactive import when_any
 from charms.reactive import when_not
+from charms.reactive import is_state
 from charms.reactive import set_state
 from charms.reactive import remove_state
 from charms.reactive import hook
 
-from charmhelpers.core.hookenv import status_set
+from charmhelpers.core.hookenv import status_set as hess
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import resource_get
 
 from charmhelpers.core.hookenv import config
+from charmhelpers.core.hookenv import log
+from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core import host
 from charmhelpers.core import templating
+from charmhelpers.core import unitdata
 from charmhelpers.fetch import apt_update
 from charmhelpers.fetch import apt_install
 
 from etcd import EtcdHelper
 from pwd import getpwnam
+from shlex import split
+from shutil import copyfile
+from shutil import rmtree
 from subprocess import check_call
 from subprocess import CalledProcessError
-from shlex import split
+from tlslib import client_cert
 
 import os
+
+
+@when('etcd.configured')
+def check_cluster_health():
+    # We have an opportunity to report on the cluster health every 5
+    # minutes, lets leverage that.
+    etcd_helper = EtcdHelper()
+    health = etcd_helper.get_cluster_health_output()
+    status_set('active', health)
 
 
 @hook('upgrade-charm')
@@ -44,6 +61,13 @@ def remove_configuration_state():
     cluster_data['cluster'] = etcd_helper.cluster_string()
     cluster_data['leader_address'] = unit_get('private-address')
     leader_set(cluster_data)
+
+
+@when_any('config.changed.port', 'config.changed.management_port')
+def update_port_mappings():
+    open_port(config('port'))
+    open_port(config('management_port'))
+    remove_state('etcd.configured')
 
 
 @when('cluster.declare_self')
@@ -103,6 +127,32 @@ def update_cluster_string():
     remove_state('etcd.configured')
 
 
+@when('etcd.ssl.placed')
+@when_not('client-credentials-relayed')
+def relay_client_credentials():
+
+    # offer a short circuit if we have already received broadcast
+    # credentials for the cluster
+    if leader_get('client_certificate') and leader_get('client_key'):
+        with open('client.crt', 'w+') as fp:
+            fp.write(leader_get('client_certificate'))
+        with open('client.key', 'w+') as fp:
+            fp.write(leader_get('client_key'))
+        set_state('client-credentials-relayed')
+        return
+
+    if is_leader():
+        charm_dir = os.getenv('CHARM_DIR')
+        client_cert(charm_dir)
+        with open('client.crt') as fp:
+            client_certificate = fp.read()
+        with open('client.key') as fp:
+            client_key = fp.read()
+        leader_set({'client_certificate': client_certificate,
+                    'client_key': client_key})
+        set_state('client-credentials-relayed')
+
+
 @when_not('etcd.installed')
 def install_etcd():
     status_set('maintenance', 'Installing etcd.')
@@ -123,6 +173,14 @@ def install_etcd():
             pkg_list = ['etcd']
             apt_update()
             apt_install(pkg_list, fatal=True)
+            # Stop the service and remove the defaults
+            # I hate that I have to do this. Sorry short-lived local data #RIP
+            # State control is to prevent upgrade-charm from nuking cluster
+            # data.
+            if not is_state('etcd.package.adjusted'):
+                host.service('stop', 'etcd')
+                rmtree('/var/lib/etcd/default')
+                set_state('etcd.package.adjusted')
             set_state('etcd.installed')
             return
         else:
@@ -144,6 +202,13 @@ def install_etcd():
         os.chmod('/var/lib/etcd/', 0o775)
         os.chown('/var/lib/etcd/', etcd_uid, -1)
 
+        # Trusty was the EOL for upstart, render its template if required
+        if codename == 'trusty':
+            templating.render('upstart', '/etc/init/etcd.conf',
+                              {}, owner='root', group='root')
+            set_state('etcd.installed')
+            return
+
         if not os.path.exists('/etc/systemd/system/etcd.service'):
             templating.render('systemd', '/etc/systemd/system/etcd.service',
                               {}, owner='root', group='root')
@@ -159,13 +224,29 @@ def install_etcd():
 
 
 @when('etcd.installed')
+@when('etcd.ssl.placed')
 @when_not('etcd.configured')
 def configure_etcd():
+    ''' There's a lot going on in here. Minimally stating, we are gaging the
+    state of the world and broadcasting that if we are the leader. Otherwise we
+    are looking to leader data, and what we can get from config to generate our
+    services config during the registration sequence '''
+    # This library has some convience methods to generate cluster strings from
+    # relation data, and other 'helpers'. Use it to generate as much shared
+    # config as possible before we diverge for leader/follower
     etcd_helper = EtcdHelper()
     cluster_data = {'private_address': unit_get('private-address')}
     cluster_data['unit_name'] = etcd_helper.unit_name
     cluster_data['management_port'] = config('management_port')
     cluster_data['port'] = config('port')
+
+    # TLS - this is a relatively new concern, and i'd like to keep a
+    # close eye on it until this branch settles.
+    ssl_path = '/etc/ssl/etcd'
+    cluster_data['ca_certificate'] = '{}/ca.pem'.format(ssl_path)
+    cluster_data['server_certificate'] = '{}/server.pem'.format(ssl_path)
+    cluster_data['server_key'] = '{}/server-key.pem'.format(ssl_path)
+
     # The leader broadcasts the cluster settings, as the leader controls the
     # state of the cluster. This assumes the leader is always initializing new
     # clusters, and may need to be adapted later to support existing cluster
@@ -188,29 +269,94 @@ def configure_etcd():
         cluster_data['leader_address'] = leader_get('leader_address')
         # self registration provided via the helper class
         etcd_helper.register(cluster_data)
+    # Now that we have configured for the upset, lets render our environment
+    # details/files and prepare to do some work
 
-    codename = host.lsb_release()['DISTRIB_CODENAME']
-    if codename == 'trusty':
-        templating.render('upstart', '/etc/init/etcd.conf',
-                          cluster_data, owner='root', group='root')
-    else:
-        templating.render('defaults', '/etc/default/etcd',
-                          cluster_data, owner='root', group='root')
+    templating.render('defaults', '/etc/default/etcd',
+                      cluster_data, owner='root', group='root')
 
     host.service('restart', 'etcd')
     set_state('etcd.configured')
 
 
-@when('etcd.configured')
-def service_messaging():
-    ''' I really like seeing the leadership status as my default message for
-        etcd so I know who the MVP is. This method reflects that. '''
-    if is_leader():
-        status_set('active', 'Etcd leader running')
+@when('tls.server.certificate available')
+@when_not('etcd.ssl.placed')
+def install_etcd_certificates():
+    etcd_ssl_path = '/etc/ssl/etcd'
+    if not os.path.exists(etcd_ssl_path):
+        os.makedirs(etcd_ssl_path)
+
+    kv = unitdata.kv()
+    cert = kv.get('tls.server.certificate')
+    with open('{}/server.pem'.format(etcd_ssl_path), 'w+') as f:
+        f.write(cert)
+    with open('{}/ca.pem'.format(etcd_ssl_path), 'w+') as f:
+        f.write(leader_get('certificate_authority'))
+
+    # schenanigans - each server makes its own key, when generating
+    # the CSR. This is why its "magically" present.
+    keypath = 'easy-rsa/easyrsa3/pki/private/{}.key'
+    server = os.getenv('JUJU_UNIT_NAME').replace('/', '_')
+    if os.path.exists(keypath.format(server)):
+        copyfile(keypath.format(server),
+                 '{}/server-key.pem'.format(etcd_ssl_path))
     else:
-        status_set('active', 'Etcd follower running')
+        copyfile(keypath.format(unit_get('public-address')),
+                 '{}/server-key.pem'.format(etcd_ssl_path))
+
+    set_state('etcd.ssl.placed')
+
+
+@when('easyrsa installed')
+@when_not('etcd.tls.opensslconfig.modified')
+def inject_swarm_tls_template():
+    '''
+    layer-tls installs a default OpenSSL Configuration that is incompatibile
+    with how etcd expects TLS keys to be generated. We will append what
+    we need to the x509-type, and poke layer-tls to regenerate.
+    '''
+    if is_leader():
+        status_set('maintenance', 'Reconfiguring SSL PKI configuration')
+
+        log('Updating EasyRSA3 OpenSSL Config')
+        openssl_config = 'easy-rsa/easyrsa3/x509-types/server'
+
+        with open(openssl_config, 'r') as f:
+            existing_template = f.readlines()
+
+        # use list comprehension to enable clients,server usage for
+        # certificate with the docker/swarm daemons.
+        xtype = [w.replace('serverAuth', 'serverAuth, clientAuth') for w in existing_template]  # noqa
+        with open(openssl_config, 'w+') as f:
+            f.writelines(xtype)
+
+        set_state('etcd.tls.opensslconfig.modified')
+        set_state('easyrsa configured')
+
+
+@when_not('etcd.pillowmints')
+def render_default_user_ssl_exports():
+    ''' Add secure credentials to default user environment configs,
+    transparently adding TLS '''
+    evars = ['export ETCDCTL_KEY_FILE=/etc/ssl/etcd/server-key.pem\n',  # noqa
+             'export ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem\n',
+             'export ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem\n']
+
+    with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
+        fp.writelines(evars)
+    with open('/root/.bash_aliases', 'w+') as fp:
+        fp.writelines(evars)
+    set_state('etcd.pillowmints')
 
 
 def install(src, tgt):
     ''' This method wraps the bash 'install' command '''
     return check_call(split('install {} {}'.format(src, tgt)))
+
+
+def status_set(status, message):
+    ''' This is a fun little hack to give me the leader in status output
+        without taking it over '''
+    if is_leader():
+        message = "(leader) {}".format(message)
+    hess(status, message)
