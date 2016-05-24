@@ -9,8 +9,8 @@ tags:
   - keystore
   - layer
 series:
-  - trusty
   - xenial
+  - trusty
 min-juju-version: 2.0-beta6
 resources:
   etcd:
