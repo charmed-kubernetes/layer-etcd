@@ -3,6 +3,7 @@
 from charms.reactive import when
 from charms.reactive import when_not
 from charms.reactive import set_state
+from charms.reactive import is_state
 from charms.reactive import remove_state
 from charms.reactive import hook
 
@@ -24,6 +25,7 @@ from pwd import getpwnam
 from subprocess import check_call
 from subprocess import CalledProcessError
 from shlex import split
+from shutil import rmtree
 
 import os
 
@@ -129,6 +131,14 @@ def install_etcd():
             pkg_list = ['etcd']
             apt_update()
             apt_install(pkg_list, fatal=True)
+            # Stop the service and remove the defaults
+            # I hate that I have to do this. Sorry short-lived local data #RIP
+            # State control is to prevent upgrade-charm from nuking cluster
+            # data.
+            if not is_state('etcd.package.adjusted'):
+                host.service('stop', 'etcd')
+                rmtree('/var/lib/etcd/default')
+                set_state('etcd.package.adjusted')
             set_state('etcd.installed')
             return
         else:
