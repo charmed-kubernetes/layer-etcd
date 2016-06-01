@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 includes:
   - 'layer:basic'
   - 'layer:tls'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
+=======
+includes: 
+  - 'layer:basic'
+  - 'layer:tls'
+  - 'interface:etcd'
+>>>>>>> tls
 exclude: ['Makefile', 'tests/10-tls-deploy.py']
 repo: https://github.com/juju-solutions/layer-etcd.git
