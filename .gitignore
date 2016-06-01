@@ -1,3 +1,5 @@
 resources
 .tox
 .coverage
+.cache
+__pycache__
