@@ -1,115 +1,77 @@
 #!/usr/bin/python3
 
 from charms.reactive import when
+from charms.reactive import when_any
 from charms.reactive import when_not
-from charms.reactive import set_state
 from charms.reactive import is_state
+from charms.reactive import set_state
 from charms.reactive import remove_state
 from charms.reactive import hook
 
-from charmhelpers.core.hookenv import status_set
+from charms.templating.jinja2 import render
+
+from charmhelpers.core.hookenv import status_set as hess
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import resource_get
 
 from charmhelpers.core.hookenv import config
+from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core import host
-from charmhelpers.core import templating
+from charmhelpers.core import unitdata
 from charmhelpers.fetch import apt_update
 from charmhelpers.fetch import apt_install
 
-from etcd import EtcdHelper
+from etcdctl import EtcdCtl
+from etcd_databag import EtcdDatabag
+
 from pwd import getpwnam
+from shlex import split
 from subprocess import check_call
 from subprocess import CalledProcessError
-from shlex import split
-from shutil import rmtree
+from tlslib import client_cert
+from tlslib import client_key
 
 import os
+import charms.leadership  # noqa
+import shutil
+import time
+
+# this was in the layer-tls readme
+set_state('tls.client.authorization.required')
+
+
+@when_any('etcd.registered', 'etcd.leader.configured')
+def check_cluster_health():
+    ''' report on the cluster health every 5 minutes'''
+    etcdctl = EtcdCtl()
+    health = etcdctl.cluster_health()
+    status_set('active', health['status'])
 
 
 @hook('upgrade-charm')
 def remove_states():
     # upgrade-charm issues when we rev resources and the charm. Assume an upset
     remove_state('etcd.installed')
-    remove_state('etcd.configured')
 
 
-@hook('leader-elected')
-def remove_configuration_state():
-    remove_state('etcd.configured')
-    etcd_helper = EtcdHelper()
-    cluster_data = {'token': etcd_helper.cluster_token()}
-    cluster_data['cluster_state'] = 'existing'
-    cluster_data['cluster'] = etcd_helper.cluster_string()
-    cluster_data['leader_address'] = unit_get('private-address')
-    leader_set(cluster_data)
-
-
-@when('cluster.declare_self')
-def cluster_declaration(cluster):
-    etcd = EtcdHelper()
-    for unit in cluster.list_peers():
-        cluster.provide_cluster_details(scope=unit,
-                                        public_address=etcd.public_address,
-                                        port=etcd.port,
-                                        unit_name=etcd.unit_name)
-
-    remove_state('cluster.declare_self')
-
-
-@when('cluster.joining')
-def cluster_update(cluster):
-    '''' Runs on cluster "disturbed" mode. Each unit is declaring their
-         participation. If you're not the leader, you can ignore this'''
-    etcd = EtcdHelper()
-    etcd.cluster_data({cluster.unit_name():
-                       {'private_address': cluster.private_address(),
-                        'public_address': cluster.public_address(),
-                        'unit_name': cluster.unit_name()}})
-
-    if is_leader():
-        # store and leader-set the new cluster string
-        leader_set({'cluster': etcd.cluster_string()})
-
-    remove_state('etcd.configured')
-    remove_state('cluster.joining')
-
-
-@when('cluster.departed')
-def remove_unit_from_cluster(cluster):
-    etcd = EtcdHelper()
-    etcd.remove_unit_from_cache(cluster.unit_name)
-    # trigger template and service restart
-    remove_state('etcd.configured')
-    # end of peer-departing event
-    remove_state('cluster.departed')
-
-
-@when('db.connected')
-def send_connection_details(client):
-    etcd = EtcdHelper()
-    data = etcd.cluster_data()
-    hosts = []
-    for unit in data:
-        hosts.append(data[unit]['private_address'])
-    client.provide_connection_string(hosts, config('port'))
-
-
-@when('proxy.connected')
-def send_cluster_details(proxy):
-    etcd = EtcdHelper()
-    proxy.provide_cluster_string(etcd.cluster_string())
-
-
-@hook('leader-settings-changed')
-def update_cluster_string():
-    # When the leader makes a broadcast, assume an upset and prepare for
-    # service restart
-    remove_state('etcd.configured')
-
+# @when('db.connected')
+# def send_connection_details(client):
+#     etcd = EtcdHelper()
+#     data = etcd.cluster_data()
+#     hosts = []
+#     for unit in data:
+#         hosts.append(data[unit]['private_address'])
+#     client.provide_connection_string(hosts, config('port'))
+#
+# #
+# @when('proxy.connected')
+# def send_cluster_details(proxy):
+#     etcd = EtcdHelper()
+#     proxy.provide_cluster_string(etcd.cluster_string())
+#
 
 @when_not('etcd.installed')
 def install_etcd():
@@ -120,6 +82,7 @@ def install_etcd():
     try:
         etcd_path = resource_get('etcd')
         etcdctl_path = resource_get('etcdctl')
+    # Not obvious but this blocks juju 1.25 clients
     except NotImplementedError:
         status_set('blocked', 'This charm requires the resource feature available in juju 2+')  # noqa
         return
@@ -137,7 +100,7 @@ def install_etcd():
             # data.
             if not is_state('etcd.package.adjusted'):
                 host.service('stop', 'etcd')
-                rmtree('/var/lib/etcd/default')
+                shutil.rmtree('/var/lib/etcd/default')
                 set_state('etcd.package.adjusted')
             set_state('etcd.installed')
             return
@@ -160,9 +123,16 @@ def install_etcd():
         os.chmod('/var/lib/etcd/', 0o775)
         os.chown('/var/lib/etcd/', etcd_uid, -1)
 
+        # Trusty was the EOL for upstart, render its template if required
+        if codename == 'trusty':
+            render('upstart', '/etc/init/etcd.conf',
+                   {}, owner='root', group='root')
+            set_state('etcd.installed')
+            return
+
         if not os.path.exists('/etc/systemd/system/etcd.service'):
-            templating.render('systemd', '/etc/systemd/system/etcd.service',
-                              {}, owner='root', group='root')
+            render('systemd', '/etc/systemd/system/etcd.service',
+                   {}, owner='root', group='root')
             # This will cause some greif if its been run before
             # so allow it to be chatty and fail if we ever re-render
             # and attempt re-enablement.
@@ -175,58 +145,190 @@ def install_etcd():
 
 
 @when('etcd.installed')
-@when_not('etcd.configured')
-def configure_etcd():
-    etcd_helper = EtcdHelper()
-    cluster_data = {'private_address': unit_get('private-address')}
-    cluster_data['unit_name'] = etcd_helper.unit_name
-    cluster_data['management_port'] = config('management_port')
-    cluster_data['port'] = config('port')
-    # The leader broadcasts the cluster settings, as the leader controls the
-    # state of the cluster. This assumes the leader is always initializing new
-    # clusters, and may need to be adapted later to support existing cluster
-    # states.
-    if is_leader():
-        status_set('maintenance', "I am the leader, configuring single node")
-        cluster_data['token'] = etcd_helper.cluster_token()
-        cluster_data['cluster_state'] = 'existing'
-        cluster_data['cluster'] = etcd_helper.cluster_string()
-        cluster_data['leader_address'] = unit_get('private-address')
-        # Actually broadcast that gnarly dictionary
-        leader_set(cluster_data)
-        # leader assumes new? seems to work.
-        cluster_data['cluster_state'] = 'new'
+@when('etcd.ssl.placed')
+@when_not('leadership.is_leader')
+@when_not('etcd.registered')
+def register_node_with_leader():
+    '''
+    Control flow mechanism to perform self registration with the leader.
+
+    Before executing self registration, we must adhere to the nature of offline
+    static turnup rules. If we find a GUID in the member list without peering
+    information the unit will enter a race condition and must wait for a clean
+    status output before we can progress to self registration.
+    '''
+    # We're going to communicate with the leader, and we need our bootstrap
+    # startup string once.. TBD after that.
+    etcdctl = EtcdCtl()
+    bag = EtcdDatabag()
+    # Assume a hiccup during registration and attempt a retry
+    if bag.cluster_unit_id:
+        bag.cluster = bag.registration_peer_string
+        render('defaults', '/etc/default/etcd', bag.__dict__)
+        host.service_restart('etcd')
+        time.sleep(2)
+
+    peers = etcdctl.member_list(leader_get('leader_address'))
+    for unit in peers:
+        if 'client_urls' not in peers[unit].keys():
+            # we cannot register. State not attainable.
+            msg = 'Waiting for unit to complete registration'
+            status_set('waiting', msg)
+            return
+
+    if not bag.cluster_unit_id:
+        bag.leader_address = leader_get('leader_address')
+        resp = etcdctl.register(bag.__dict__)
+        if resp and 'cluster_unit_id' in resp.keys() and 'cluster' in resp.keys():
+            bag.cache_registration_detail('cluster_unit_id',
+                                          resp['cluster_unit_id'])
+            bag.cache_registration_detail('registration_peer_string',
+                                          resp['cluster'])
+
+            bag.cluster_unit_id = resp['cluster_unit_id']
+            bag.cluster = resp['cluster']
+
+    render('defaults', '/etc/default/etcd', bag.__dict__)
+    host.service_restart('etcd')
+    time.sleep(2)
+
+    # Check health status before we say we are good
+    etcdctl = EtcdCtl()
+    status = etcdctl.cluster_health()
+    if 'unhealthy' in status:
+        status_set('blocked', 'Cluster not healthy')
+        return
+    open_port(bag.port)
+    set_state('etcd.registered')
+
+
+@when('etcd.installed')
+@when('etcd.ssl.placed')
+@when('leadership.is_leader')
+@when_not('etcd.leader.configured')
+def initialize_new_leader():
+    bag = EtcdDatabag()
+    bag.token = bag.token
+    bag.cluster_state = 'new'
+    bag.cluster = "{}=https://{}:{}".format(bag.unit_name,
+                                            bag.private_address,
+                                            bag.management_port)
+    render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
+           group='root')
+    host.service_restart('etcd')
+
+    # sorry, some hosts need this. The charm races with systemd and wins.
+    time.sleep(2)
+
+    # Check health status before we say we are good
+    etcdctl = EtcdCtl()
+    status = etcdctl.cluster_health()
+    if 'unhealthy' in status:
+        status_set('blocked', 'Cluster not healthy')
+        return
+    # We have a healthy leader, broadcast initial data-points for followers
+    open_port(bag.port)
+    leader_set({'token': bag.token,
+                'leader_address': "https://{}:{}".format(bag.private_address,
+                                                         bag.port),
+                'cluster': bag.cluster})
+
+    # finish bootstrap delta and set configured state
+    set_state('etcd.leader.configured')
+
+
+@when('etcd.ssl.placed')
+@when_not('leadership.is_leader')
+@when_not('client-credentials-relayed')
+def relay_client_credentials():
+
+    # offer a short circuit if we have already received broadcast
+    # credentials for the cluster
+    if leader_get('client_certificate') and leader_get('client_key'):
+        with open('client.crt', 'w+') as fp:
+            fp.write(leader_get('client_certificate'))
+        with open('client.key', 'w+') as fp:
+            fp.write(leader_get('client_key'))
+        set_state('client-credentials-relayed')
+        return
+
+
+@when('leadership.is_leader')
+@when('etcd.ssl.placed')
+@when_not('client-credentials-relayed')
+def broadcast_client_credentials():
+    charm_dir = os.getenv('CHARM_DIR')
+    client_cert(None, charm_dir)
+    client_key(None, charm_dir)
+    with open('client.crt') as fp:
+        client_certificate = fp.read()
+    with open('client.key') as fp:
+        client_certificate_key = fp.read()
+    leader_set({'client_certificate': client_certificate,
+                'client_key': client_certificate_key})
+    set_state('client-credentials-relayed')
+
+
+@when('tls.server.certificate available')
+@when_not('etcd.ssl.placed')
+def install_etcd_certificates():
+    etcd_ssl_path = '/etc/ssl/etcd'
+    if not os.path.exists(etcd_ssl_path):
+        os.makedirs(etcd_ssl_path)
+
+    kv = unitdata.kv()
+    cert = kv.get('tls.server.certificate')
+    with open('{}/server.pem'.format(etcd_ssl_path), 'w+') as f:
+        f.write(cert)
+    with open('{}/ca.pem'.format(etcd_ssl_path), 'w+') as f:
+        f.write(leader_get('certificate_authority'))
+
+    # schenanigans - each server makes its own key, when generating
+    # the CSR. This is why its "magically" present.
+    keypath = 'easy-rsa/easyrsa3/pki/private/{}.key'
+    server = os.getenv('JUJU_UNIT_NAME').replace('/', '_')
+    if os.path.exists(keypath.format(server)):
+        shutil.copyfile(keypath.format(server),
+                        '{}/server-key.pem'.format(etcd_ssl_path))
     else:
-        status_set('maintenance', 'registering unit with etcd-leader')
-        cluster_data['token'] = leader_get('token')
-        cluster_data['cluster_state'] = leader_get('cluster_state')
-        cluster_data['cluster'] = etcd_helper.cluster_string()
-        cluster_data['leader_address'] = leader_get('leader_address')
-        # self registration provided via the helper class
-        etcd_helper.register(cluster_data)
+        shutil.copyfile(keypath.format(unit_get('public-address')),
+                        '{}/server-key.pem'.format(etcd_ssl_path))
 
-    codename = host.lsb_release()['DISTRIB_CODENAME']
-    if codename == 'trusty':
-        templating.render('upstart', '/etc/init/etcd.conf',
-                          cluster_data, owner='root', group='root')
-    else:
-        templating.render('defaults', '/etc/default/etcd',
-                          cluster_data, owner='root', group='root')
-
-    host.service('restart', 'etcd')
-    set_state('etcd.configured')
+    set_state('etcd.ssl.placed')
 
 
-@when('etcd.configured')
-def service_messaging():
-    ''' I really like seeing the leadership status as my default message for
-        etcd so I know who the MVP is. This method reflects that. '''
-    if is_leader():
-        status_set('active', 'Etcd leader running')
-    else:
-        status_set('active', 'Etcd follower running')
+@when_not('etcd.pillowmints')
+def render_default_user_ssl_exports():
+    ''' Add secure credentials to default user environment configs,
+    transparently adding TLS '''
+    evars = ['export ETCDCTL_KEY_FILE=/etc/ssl/etcd/server-key.pem\n',  # noqa
+             'export ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem\n',
+             'export ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem\n']
+
+    with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
+        fp.writelines(evars)
+    with open('/root/.bash_aliases', 'w+') as fp:
+        fp.writelines(evars)
+    set_state('etcd.pillowmints')
+
+
+@when('cluster.departed')
+@when('etcd.registered')
+def self_destruct(cluster):
+    bag = EtcdDatabag()
+    etcdctl = EtcdCtl()
+    etcdctl.unregister(bag.cluster_unit_id)
+    remove_state('cluster.departed')
 
 
 def install(src, tgt):
     ''' This method wraps the bash 'install' command '''
     return check_call(split('install {} {}'.format(src, tgt)))
+
+
+def status_set(status, message):
+    ''' This is a fun little hack to give me the leader in status output
+        without taking it over '''
+    if is_leader():
+        message = "(leader) {}".format(message)
+    hess(status, message)

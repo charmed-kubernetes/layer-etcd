@@ -1,1 +1,5 @@
 resources
+.cache
+.tox
+.DS_Store
+__pycache__

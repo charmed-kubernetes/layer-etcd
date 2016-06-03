@@ -34,6 +34,14 @@ Its recommended to run an odd number of machines as it has greater redundancy
 than even number (ie. with 4, you can lose 1 before quorum is lost, where as
 with 5, you can lose 2).
 
+### Notes about cluster turn-up
+
+The Etcd charm initializes a cluster using the Static configuration: which
+is the most "flexible" of all the installation options, considering it allows
+Etcd to be self-discovering using the peering relationships provided by
+Juju. Trying to start up etcd behind the corporate firewall? Thanks to
+resources, the charm is now completely stand alone, and supports this.
+
 # The charm told me to see the README
 
 You've been directed here because you're deploying this etcd charm onto a
@@ -87,6 +95,49 @@ juju action fetch <uuid>
 
 ```
 
+The health is also reported continuously via `juju status`. During initial
+cluster turn-up, its entirely reasonable for the health checks to fail. this
+is not a situation to cause you alarm. The health-checks are being executed
+before the cluster has stabilized, and it should even out once the members
+start to come online and the update-status hook is run again.
+
+This will give you some insight into the cluster on a 5 minute interval, and
+will report healthy nodes vs unhealthy nodes.
+
+For example:
+
+```shell
+ID      WORKLOAD-STATUS JUJU-STATUS VERSION   MACHINE PORTS             PUBLIC-ADDRESS MESSAGE
+etcd/9  active          idle        2.0-beta6 10      2379/tcp,2380/tcp 192.168.239.20 cluster-health check failed... needs attention
+etcd/10 active          idle        2.0-beta6 9       2379/tcp,2380/tcp 192.168.91.60  (leader) cluster is healthy
+```
+
+# TLS
+
+The ETCD charm supports TLS terminated endpoints by default. All efforts have
+been made to ensure the PKI is as robust as possible.
+
+Client certificates can be obtained by running an action on any of the cluster
+members:
+
+```shell
+juju run-action etcd/12 generate-client-certificates
+juju scp etcd/12:etcd_client_credentials.tar.gz etcd_credentials.tar.gz
+```
+
+This will place the client certificates in `pwd`. If you're keen on using
+etcdctl outside of the cluster machines,  you'll need to expose the service,
+and export some environment variables to consume the client credentials.
+
+```shell
+juju expose etcd
+export ETCDCTL_KEY_FILE=$(pwd)/clientkey.pem
+export ETCDCTL_CERT_FILE=$(pwd)/clientcert.pem
+export ETCDCTL_CA_FILE=$(pwd)/ca.pem
+export ETCDCTL_ENDPOINT=https://{ip of etcd host}:2379
+etcdctl member list
+```
+
 
 # Known Limitations
 
@@ -99,6 +150,10 @@ problem has been resolved](https://github.com/juju-solutions/layer-etcd/issues/5
 
 This charm requires resources to be provided to the charm in order to deploy
 on trusty hosts. This requires juju 2.0 or greater.
+
+If you destroy the leader - identified with the `(leader)` text prepended to
+any status messages: all TLS pki will be lost. No PKI migration occurs outside
+of the units requesting and registering the certificates. You have been warned.
 
 
 ## Contributors
