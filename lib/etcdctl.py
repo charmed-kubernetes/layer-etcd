@@ -92,10 +92,18 @@ class EtcdCtl:
     def cluster_health(self):
         ''' Returns the output of etcdctl cluster-health as a python dict
         organized by topical information with detailed unit output '''
-
-        out = self.run('etcdctl cluster-health')
-        health_output = out.strip('\n').split('\n')
-        return {'status': health_output[-1], 'units': health_output[0:-2]}
+        health = {}
+        try:
+            out = self.run('etcdctl cluster-health')
+            health_output = out.strip('\n').split('\n')
+            health['status'] = health_output[-1]
+            health['units'] = health_output[0:-2]
+        except CalledProcessError, cpe:
+            log('Notice:  Unit failed cluster-health check', 'WARNING')
+            log(cpe.output)
+            health['status'] = 'cluster is unhealthy see log file for details.'
+            health['units'] = []
+        return health
 
     def run(self, command):
         ''' Wrapper to subprocess calling output. This is a convenience
