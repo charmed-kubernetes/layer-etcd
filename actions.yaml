@@ -1,3 +1,6 @@
 health:
     description: Call the health of the cluster
-
+package-client-credentials:
+    description: |
+     Generate a tarball of the client certificates to connect to the cluster
+     remotely.

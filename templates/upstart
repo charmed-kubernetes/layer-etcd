@@ -11,13 +11,9 @@ kill timeout 60 # wait 60s between SIGTERM and SIGKILL.
 setuid etcd
 setgid etcd
 
-exec /usr/bin/etcd \
-    --initial-advertise-peer-urls http://{{ private_address }}:{{ management_port }} \
-    --listen-peer-urls http://{{ private_address }}:{{ management_port }} \
-    --listen-client-urls http://127.0.0.1:{{ port }},http://{{private_address}}:{{ port }} \
-    --advertise-client-urls http://{{private_address}}:{{ port }} \
-    --initial-cluster-token {{ token }} \
-    --initial-cluster-state {{ cluster_state }} \
-    --initial-cluster={{ cluster }} \
-    --data-dir="/var/lib/etcd/" \
-    --name="{{ unit_name }}"
+
+script
+  set -a
+  . /etc/default/etcd
+  /usr/bin/etcd
+end script
