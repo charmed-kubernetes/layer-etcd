@@ -98,7 +98,7 @@ class EtcdCtl:
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
-        except CalledProcessError, cpe:
+        except CalledProcessError as cpe:
             log('Notice:  Unit failed cluster-health check', 'WARNING')
             log(cpe.output)
             health['status'] = 'cluster is unhealthy see log file for details.'
