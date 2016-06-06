@@ -179,7 +179,7 @@ def register_node_with_leader():
     if not bag.cluster_unit_id:
         bag.leader_address = leader_get('leader_address')
         resp = etcdctl.register(bag.__dict__)
-        if resp and 'cluster_unit_id' in resp.keys() and 'cluster' in resp.keys():
+        if resp and 'cluster_unit_id' in resp.keys() and 'cluster' in resp.keys():  # noqa
             bag.cache_registration_detail('cluster_unit_id',
                                           resp['cluster_unit_id'])
             bag.cache_registration_detail('registration_peer_string',
@@ -204,6 +204,7 @@ def register_node_with_leader():
 
 @when('etcd.installed')
 @when('etcd.ssl.placed')
+@when('cluster.joined')
 @when('leadership.is_leader')
 @when_not('etcd.leader.configured')
 def initialize_new_leader():
@@ -312,13 +313,13 @@ def render_default_user_ssl_exports():
     set_state('etcd.pillowmints')
 
 
-@when('cluster.departed')
-@when('etcd.registered')
-def self_destruct(cluster):
-    bag = EtcdDatabag()
+@when('cluster.departing')
+def unregister(cluster):
     etcdctl = EtcdCtl()
-    etcdctl.unregister(bag.cluster_unit_id)
-    remove_state('cluster.departed')
+    if is_state('leadership.is_leader'):
+        for node in cluster.nodes():
+            etcdctl.unregister(cluster.get_guid(node))
+    cluster.dismiss()
 
 
 def install(src, tgt):
