@@ -190,8 +190,6 @@ def register_node_with_leader(cluster):
             bag.cluster_unit_id = resp['cluster_unit_id']
             bag.cluster = resp['cluster']
 
-    cluster.send_unit_id(bag.cluster_unit_id)
-
     render('defaults', '/etc/default/etcd', bag.__dict__)
     host.service_restart('etcd')
     time.sleep(2)
@@ -204,23 +202,6 @@ def register_node_with_leader(cluster):
         return
     open_port(bag.port)
     set_state('etcd.registered')
-
-
-@when('leadership.is_leader')
-@when('cluster.joined')
-def broadcast_unit_guid(cluster):
-    '''
-    Just for completeness, in the event a unit is the leader is is no longer
-    the leader, it will be important for its registration information to
-    be on the relationship. This ensures that happens
-    '''
-    bag = EtcdDatabag()
-
-    if not bag.cluster_unit_id:
-        etcdctl = EtcdCtl()
-        members = etcdctl.member_list()
-        if members[bag.unit_name]:
-            cluster.send_unit_id(members[bag.unit_name]['unit_id'])
 
 
 @when('etcd.installed')
@@ -334,12 +315,30 @@ def render_default_user_ssl_exports():
 
 
 @when('cluster.departing')
+@when('leadership.is_leader')
 def unregister(cluster):
-    if is_state('leadership.is_leader'):
-        cluster_map = cluster.get_uids()
-        for name, uid in cluster_map:
-            log("Unregistering {0}={1}".format(name, uid))
-            etcdctl.unregister(uid)
+    ''' The leader will process the departing event and attempt unregistration
+        for the departing unit. If the leader is departing, it will unregister
+        all units prior to termination.
+    '''
+    etcdctl = EtcdCtl()
+    peers = cluster.get_peers()
+    members = etcdctl.member_list()
+    for unit in peers:
+        cluster_name = unit.replace('/', '')
+        if cluster_name in members.keys():
+            log("Unregistering {0}".format(unit))
+            etcdctl.unregister(members[cluster_name]['unit_id'])
+        else:
+            log("Received removal for disconnected member {}".format(unit))
+    cluster.dismiss()
+
+
+@when('cluster.departing')
+@when_not('leadership.is_leader')
+def passive_dismiss_context(cluster):
+    ''' All units undergo the departing phase. This is a no-op unless you
+        are the leader '''
     cluster.dismiss()
 
 
