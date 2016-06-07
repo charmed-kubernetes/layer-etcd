@@ -147,9 +147,10 @@ def install_etcd():
 
 @when('etcd.installed')
 @when('etcd.ssl.placed')
+@when('cluster.joined')
 @when_not('leadership.is_leader')
 @when_not('etcd.registered')
-def register_node_with_leader():
+def register_node_with_leader(cluster):
     '''
     Control flow mechanism to perform self registration with the leader.
 
@@ -189,6 +190,8 @@ def register_node_with_leader():
             bag.cluster_unit_id = resp['cluster_unit_id']
             bag.cluster = resp['cluster']
 
+    cluster.send_unit_id(bag.cluster_unit_id)
+
     render('defaults', '/etc/default/etcd', bag.__dict__)
     host.service_restart('etcd')
     time.sleep(2)
@@ -203,9 +206,25 @@ def register_node_with_leader():
     set_state('etcd.registered')
 
 
+@when('leadership.is_leader')
+@when('cluster.joined')
+def broadcast_unit_guid(cluster):
+    '''
+    Just for completeness, in the event a unit is the leader is is no longer
+    the leader, it will be important for its registration information to
+    be on the relationship. This ensures that happens
+    '''
+    bag = EtcdDatabag()
+
+    if not bag.cluster_unit_id:
+        etcdctl = EtcdCtl()
+        members = etcdctl.member_list()
+        if members[bag.unit_name]:
+            cluster.send_unit_id(members[bag.unit_name]['unit_id'])
+
+
 @when('etcd.installed')
 @when('etcd.ssl.placed')
-@when('cluster.joined')
 @when('leadership.is_leader')
 @when_not('etcd.leader.configured')
 def initialize_new_leader():
