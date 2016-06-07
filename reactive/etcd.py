@@ -17,7 +17,6 @@ from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import resource_get
 
-from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core import host
