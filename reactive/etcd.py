@@ -11,6 +11,7 @@ from charms.reactive import hook
 from charms.templating.jinja2 import render
 
 from charmhelpers.core.hookenv import status_set as hess
+from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
@@ -146,9 +147,10 @@ def install_etcd():
 
 @when('etcd.installed')
 @when('etcd.ssl.placed')
+@when('cluster.joined')
 @when_not('leadership.is_leader')
 @when_not('etcd.registered')
-def register_node_with_leader():
+def register_node_with_leader(cluster):
     '''
     Control flow mechanism to perform self registration with the leader.
 
@@ -179,7 +181,7 @@ def register_node_with_leader():
     if not bag.cluster_unit_id:
         bag.leader_address = leader_get('leader_address')
         resp = etcdctl.register(bag.__dict__)
-        if resp and 'cluster_unit_id' in resp.keys() and 'cluster' in resp.keys():
+        if resp and 'cluster_unit_id' in resp.keys() and 'cluster' in resp.keys():  # noqa
             bag.cache_registration_detail('cluster_unit_id',
                                           resp['cluster_unit_id'])
             bag.cache_registration_detail('registration_peer_string',
@@ -312,13 +314,32 @@ def render_default_user_ssl_exports():
     set_state('etcd.pillowmints')
 
 
-@when('cluster.departed')
-@when('etcd.registered')
-def self_destruct(cluster):
-    bag = EtcdDatabag()
+@when('cluster.departing')
+@when('leadership.is_leader')
+def unregister(cluster):
+    ''' The leader will process the departing event and attempt unregistration
+        for the departing unit. If the leader is departing, it will unregister
+        all units prior to termination.
+    '''
     etcdctl = EtcdCtl()
-    etcdctl.unregister(bag.cluster_unit_id)
-    remove_state('cluster.departed')
+    peers = cluster.get_peers()
+    members = etcdctl.member_list()
+    for unit in peers:
+        cluster_name = unit.replace('/', '')
+        if cluster_name in members.keys():
+            log("Unregistering {0}".format(unit))
+            etcdctl.unregister(members[cluster_name]['unit_id'])
+        else:
+            log("Received removal for disconnected member {}".format(unit))
+    cluster.dismiss()
+
+
+@when('cluster.departing')
+@when_not('leadership.is_leader')
+def passive_dismiss_context(cluster):
+    ''' All units undergo the departing phase. This is a no-op unless you
+        are the leader '''
+    cluster.dismiss()
 
 
 def install(src, tgt):
