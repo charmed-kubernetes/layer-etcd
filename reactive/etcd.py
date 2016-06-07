@@ -11,6 +11,7 @@ from charms.reactive import hook
 from charms.templating.jinja2 import render
 
 from charmhelpers.core.hookenv import status_set as hess
+from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
@@ -315,10 +316,11 @@ def render_default_user_ssl_exports():
 
 @when('cluster.departing')
 def unregister(cluster):
-    etcdctl = EtcdCtl()
     if is_state('leadership.is_leader'):
-        for node in cluster.nodes():
-            etcdctl.unregister(cluster.get_guid(node))
+        cluster_map = cluster.get_uids()
+        for name, uid in cluster_map:
+            log("Unregistering {0}={1}".format(name, uid))
+            etcdctl.unregister(uid)
     cluster.dismiss()
 
 
