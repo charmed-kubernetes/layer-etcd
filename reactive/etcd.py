@@ -27,6 +27,7 @@ from charmhelpers.fetch import apt_update
 from charmhelpers.fetch import apt_install
 
 from etcdctl import EtcdCtl
+from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
 
 from pwd import getpwnam
@@ -65,7 +66,7 @@ def remove_states():
 def leader_config_changed():
     ''' The leader executes the runtime configuration update for the cluster,
     as it is the controlling unit. Will render config, close and open ports and
-    restart the etcd service. '''
+    restart the etcd service.'''
     configuration = hookenv.config()
     previous_port = configuration.previous('port')
     log('Previous port: {0}'.format(previous_port))
@@ -100,8 +101,8 @@ def follower_config_changed():
     ''' Follower units need to render the configuration file, close and open
     ports, and restart the etcd service. '''
     bag = EtcdDatabag()
-    # Render the follower's configuration with the new values.
     log('Rendering defaults file for {0}'.format(bag.unit_name))
+    # Render the follower's configuration with the new values.
     render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
            group='root')
     # Close the previous client port and open the new one.
@@ -109,21 +110,50 @@ def follower_config_changed():
     host.service_restart('etcd')
 
 
-# @when('db.connected')
-# def send_connection_details(client):
-#     etcd = EtcdHelper()
-#     data = etcd.cluster_data()
-#     hosts = []
-#     for unit in data:
-#         hosts.append(data[unit]['private_address'])
-#     client.provide_connection_string(hosts, config('port'))
-#
+@when('db.connected')
+@when('etcd.ssl.placed')
+@when('cluster.joined')
+def send_cluster_connection_details(db, cluster):
+    ''' Need to set the cluster connection string and
+    the client key and certificate on the relation object. '''
+    cert = leader_get('client_certificate')
+    key = leader_get('client_key')
+    # Set the key and cert on the db relation
+    db.set_client_key_cert(key, cert)
+
+    port = hookenv.confg().get('port')
+    # Get all the peers participating in the cluster relation.
+    members = cluster.get_peer_addresses()
+    # Create a connection string with all the members on the configured port.
+    connection_string = get_connection_string(members, port)
+    # Set the connection string on the db relation.
+    db.set_connection_string(connection_string)
+
+
+@when('db.connected')
+@when('etcd.ssl.placed')
+def send_single_connection_details(db):
+    ''' '''
+    cert = leader_get('client_certificate')
+    key = leader_get('client_key')
+    # Set the key and cert on the db relation
+    db.set_client_key_cert(key, cert)
+
+    bag = EtcdDatabag()
+    # Get all the peers participating in the cluster relation.
+    members = [bag.private_address]
+    # Create a connection string with this member on the configured port.
+    connection_string = get_connection_string(members, bag.port)
+    # Set the connection string on the db relation.
+    db.set_connection_string(connection_string)
+
 # #
 # @when('proxy.connected')
 # def send_cluster_details(proxy):
 #     etcd = EtcdHelper()
 #     proxy.provide_cluster_string(etcd.cluster_string())
 #
+
 
 @when_not('etcd.installed')
 def install_etcd():
@@ -269,9 +299,9 @@ def initialize_new_leader():
     bag = EtcdDatabag()
     bag.token = bag.token
     bag.cluster_state = 'new'
-    bag.cluster = "{}=https://{}:{}".format(bag.unit_name,
-                                            bag.private_address,
-                                            bag.management_port)
+    cluster_connection_string = get_connection_string([bag.private_address],
+                                                      bag.management_port)
+    bag.cluster = "{}={}".format(bag.unit_name, cluster_connection_string)
     render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
            group='root')
     host.service_restart('etcd')
@@ -287,10 +317,11 @@ def initialize_new_leader():
         return
     # We have a healthy leader, broadcast initial data-points for followers
     open_port(bag.port)
+    leader_connection_string = get_connection_string([bag.private_address],
+                                                     bag.port)
     leader_set({'token': bag.token,
-                'leader_address': "https://{}:{}".format(bag.private_address,
-                                                         bag.port)
-                })
+                'leader_address': leader_connection_string,
+                'cluster': bag.cluster})
 
     # finish bootstrap delta and set configured state
     set_state('etcd.leader.configured')
@@ -416,7 +447,7 @@ def close_open_ports():
 
 
 def install(src, tgt):
-    ''' This method wraps the bash `install` command '''
+    ''' This method wraps the bash "install" command '''
     return check_call(split('install {} {}'.format(src, tgt)))
 
 
