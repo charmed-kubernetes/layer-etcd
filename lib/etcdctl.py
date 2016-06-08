@@ -19,11 +19,12 @@ class EtcdCtl:
         requires keys: leader_address, port, unit_name, private_address,
         management_port
         '''
-        command = "etcdctl -C {} member add {}" \
-                  " http://{}:{}".format(cluster_data['leader_address'],
-                                         cluster_data['unit_name'],
-                                         cluster_data['private_address'],
-                                         cluster_data['management_port'])
+        # Create a https url to the leader unit name on the private addres.
+        command = "etcdctl -C {0} member add {1} " \
+                  "https://{2}:{3}".format(cluster_data['leader_address'],
+                                           cluster_data['unit_name'],
+                                           cluster_data['private_address'],
+                                           cluster_data['management_port'])
 
         try:
             result = self.run(command)
@@ -33,7 +34,7 @@ class EtcdCtl:
 
         # ['Added member named etcd12 with ID b9ab5b5a2e4baec5 to cluster',
         # '', 'ETCD_NAME="etcd12"',
-        #  'ETCD_INITIAL_CLUSTER="etcd11=https://10.113.96.26:2380,etcd12=http://10.113.96.206:2380"',
+        #  'ETCD_INITIAL_CLUSTER="etcd11=https://10.113.96.26:2380,etcd12=https://10.113.96.206:2380"',
         # 'ETCD_INITIAL_CLUSTER_STATE="existing"', '']
 
         reg = {}
@@ -88,6 +89,23 @@ class EtcdCtl:
                                   'peer_urls': peer_urls,
                                   'client_urls': client_urls}
         return members
+
+    def member_update(self, unit_id, uri):
+        ''' Update the etcd cluster member by unit_id with a new uri. This
+        allows us to change protocol, address or port.
+        @params unit_id: The string ID of the unit in the cluster.
+        @params uri: The string universal resource indicator of where to
+        contact the peer. '''
+        out = ''
+        try:
+            command = 'etcdctl member update {0} {1}'.format(unit_id, uri)
+            log(command)
+            # Run the member update command for the existing unit_id.
+            out = self.run(command)
+        except CalledProcessError as cpe:
+            log('Failed to update member {0}'.format(unit_id), 'WARNING')
+            log(cpe.output)
+        return out
 
     def cluster_health(self):
         ''' Returns the output of etcdctl cluster-health as a python dict
