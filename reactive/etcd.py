@@ -18,7 +18,9 @@ from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import resource_get
 
 from charmhelpers.core.hookenv import open_port
+from charmhelpers.core.hookenv import close_port
 from charmhelpers.core.hookenv import unit_get
+from charmhelpers.core import hookenv
 from charmhelpers.core import host
 from charmhelpers.core import unitdata
 from charmhelpers.fetch import apt_update
@@ -57,6 +59,56 @@ def remove_states():
     remove_state('etcd.installed')
 
 
+@when('etcd.installed')
+@when('leadership.is_leader')
+@when_any('config.changed.port', 'config.changed.management_port')
+def leader_config_changed():
+    ''' The leader executes the runtime configuration update for the cluster,
+    as it is the controlling unit. Will render config, close and open ports and
+    restart the etcd service. '''
+    configuration = hookenv.config()
+    previous_port = configuration.previous('port')
+    log('Previous port: {0}'.format(previous_port))
+    previous_mgmt_port = configuration.previous('management_port')
+    log('Previous management port: {0}'.format(previous_mgmt_port))
+    if previous_port and previous_mgmt_port:
+        bag = EtcdDatabag()
+        etcdctl = EtcdCtl()
+        members = etcdctl.member_list()
+        # Iterate over all the members in the list.
+        for unit_name in members:
+            # Grab the previous peer url and replace the management port.
+            peer_urls = members[unit_name]['peer_urls']
+            log('Previous peer url: {0}'.format(peer_urls))
+            old_port = ':{0}'.format(previous_mgmt_port)
+            new_port = ':{0}'.format(configuration.get('management_port'))
+            url = peer_urls.replace(old_port, new_port)
+            # Update the member's peer_urls with the new ports.
+            log(etcdctl.member_update(members[unit_name]['unit_id'], url))
+        # Render just the leaders configuration with the new values.
+        render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
+               group='root')
+        # Close the previous client port and open the new one.
+        close_open_ports()
+        host.service_restart('etcd')
+
+
+@when('etcd.installed')
+@when_not('leadership.is_leader')
+@when_any('config.changed.port', 'config.changed.management_port')
+def follower_config_changed():
+    ''' Follower units need to render the configuration file, close and open
+    ports, and restart the etcd service. '''
+    bag = EtcdDatabag()
+    # Render the follower's configuration with the new values.
+    log('Rendering defaults file for {0}'.format(bag.unit_name))
+    render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
+           group='root')
+    # Close the previous client port and open the new one.
+    close_open_ports()
+    host.service_restart('etcd')
+
+
 # @when('db.connected')
 # def send_connection_details(client):
 #     etcd = EtcdHelper()
@@ -75,6 +127,9 @@ def remove_states():
 
 @when_not('etcd.installed')
 def install_etcd():
+    ''' Attempt resource get on the "etcd" and "etcdctl" resources. If no
+    resources are provided attempt to install from the archive only on the
+    16.04 (xenial) series. '''
     status_set('maintenance', 'Installing etcd.')
 
     codename = host.lsb_release()['DISTRIB_CODENAME']
@@ -100,7 +155,8 @@ def install_etcd():
             # data.
             if not is_state('etcd.package.adjusted'):
                 host.service('stop', 'etcd')
-                shutil.rmtree('/var/lib/etcd/default')
+                if os.path.exists('/var/lib/etcd/default'):
+                    shutil.rmtree('/var/lib/etcd/default')
                 set_state('etcd.package.adjusted')
             set_state('etcd.installed')
             return
@@ -208,6 +264,8 @@ def register_node_with_leader(cluster):
 @when('leadership.is_leader')
 @when_not('etcd.leader.configured')
 def initialize_new_leader():
+    ''' Create an initial cluster string to bring up a single member cluster of
+    etcd, and set the leadership data so the followers can join this one. '''
     bag = EtcdDatabag()
     bag.token = bag.token
     bag.cluster_state = 'new'
@@ -231,8 +289,8 @@ def initialize_new_leader():
     open_port(bag.port)
     leader_set({'token': bag.token,
                 'leader_address': "https://{}:{}".format(bag.private_address,
-                                                         bag.port),
-                'cluster': bag.cluster})
+                                                         bag.port)
+                })
 
     # finish bootstrap delta and set configured state
     set_state('etcd.leader.configured')
@@ -242,7 +300,7 @@ def initialize_new_leader():
 @when_not('leadership.is_leader')
 @when_not('client-credentials-relayed')
 def relay_client_credentials():
-
+    ''' Write the client cert and key to the charm directory on followers. '''
     # offer a short circuit if we have already received broadcast
     # credentials for the cluster
     if leader_get('client_certificate') and leader_get('client_key'):
@@ -258,6 +316,8 @@ def relay_client_credentials():
 @when('etcd.ssl.placed')
 @when_not('client-credentials-relayed')
 def broadcast_client_credentials():
+    ''' As the leader, copy the client cert and key to the charm dir and set
+    the contents as leader data.'''
     charm_dir = os.getenv('CHARM_DIR')
     client_cert(None, charm_dir)
     client_key(None, charm_dir)
@@ -273,6 +333,8 @@ def broadcast_client_credentials():
 @when('tls.server.certificate available')
 @when_not('etcd.ssl.placed')
 def install_etcd_certificates():
+    ''' Copy the server cert and key to /etc/ssl/etcd and set the
+    etcd.ssl.placed state. '''
     etcd_ssl_path = '/etc/ssl/etcd'
     if not os.path.exists(etcd_ssl_path):
         os.makedirs(etcd_ssl_path)
@@ -341,8 +403,20 @@ def passive_dismiss_context(cluster):
     cluster.dismiss()
 
 
+def close_open_ports():
+    ''' Close the previous port and open the port from configuration. '''
+    configuration = hookenv.config()
+    previous_port = configuration.previous('port')
+    port = configuration.get('port')
+    if previous_port is not None and previous_port != port:
+        log('The port changed; closing {0} opening {1}'.format(previous_port,
+            port))
+        close_port(previous_port)
+        open_port(port)
+
+
 def install(src, tgt):
-    ''' This method wraps the bash 'install' command '''
+    ''' This method wraps the bash `install` command '''
     return check_call(split('install {} {}'.format(src, tgt)))
 
 
