@@ -91,6 +91,9 @@ def leader_config_changed():
                group='root')
         # Close the previous client port and open the new one.
         close_open_ports()
+        leader_set({'leader_address':
+                   get_connection_string([bag.private_address],
+                                         bag.management_port)})
         host.service_restart('etcd')
 
 
@@ -113,7 +116,7 @@ def follower_config_changed():
 @when('db.connected')
 @when('etcd.ssl.placed')
 @when('cluster.joined')
-def send_cluster_connection_details(db, cluster):
+def send_cluster_connection_details(cluster, db):
     ''' Need to set the cluster connection string and
     the client key and certificate on the relation object. '''
     cert = leader_get('client_certificate')
@@ -121,7 +124,7 @@ def send_cluster_connection_details(db, cluster):
     # Set the key and cert on the db relation
     db.set_client_key_cert(key, cert)
 
-    port = hookenv.confg().get('port')
+    port = hookenv.config().get('port')
     # Get all the peers participating in the cluster relation.
     members = cluster.get_peer_addresses()
     # Create a connection string with all the members on the configured port.
