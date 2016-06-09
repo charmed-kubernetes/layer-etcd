@@ -121,8 +121,9 @@ def send_cluster_connection_details(cluster, db):
     the client key and certificate on the relation object. '''
     cert = leader_get('client_certificate')
     key = leader_get('client_key')
-    # Set the key and cert on the db relation
-    db.set_client_key_cert(key, cert)
+    ca = leader_get('certificate_authority')
+    # Set the key, cert, and ca on the db relation
+    db.set_client_credentials(key, cert, ca)
 
     port = hookenv.config().get('port')
     # Get all the peers participating in the cluster relation.
@@ -139,8 +140,9 @@ def send_single_connection_details(db):
     ''' '''
     cert = leader_get('client_certificate')
     key = leader_get('client_key')
+    ca = leader_get('certificate_authority')
     # Set the key and cert on the db relation
-    db.set_client_key_cert(key, cert)
+    db.set_client_credentials(key, cert, ca)
 
     bag = EtcdDatabag()
     # Get all the peers participating in the cluster relation.
