@@ -19,12 +19,14 @@ class EtcdCtl:
         requires keys: leader_address, port, unit_name, private_address,
         management_port
         '''
+        # Build a connection string for the cluster data.
+        connection = get_connection_string([cluster_data['private_address']],
+                                           cluster_data['management_port'])
         # Create a https url to the leader unit name on the private addres.
         command = "etcdctl -C {0} member add {1} " \
-                  "https://{2}:{3}".format(cluster_data['leader_address'],
-                                           cluster_data['unit_name'],
-                                           cluster_data['private_address'],
-                                           cluster_data['management_port'])
+                  "{2}".format(cluster_data['leader_address'],
+                               cluster_data['unit_name'],
+                               connection)
 
         try:
             result = self.run(command)
@@ -130,3 +132,13 @@ class EtcdCtl:
         os.environ['ETCDCTL_CERT_FILE'] = '/etc/ssl/etcd/server.pem'
         os.environ['ETCDCTL_KEY_FILE'] = '/etc/ssl/etcd/server-key.pem'
         return check_output(split(command)).decode('ascii')
+
+
+def get_connection_string(members, port, protocol='https'):
+    ''' Return a connection string for the list of members using the provided
+    port and protocol (defaults to https)'''
+    connections = []
+    for address in members:
+        connections.append('{0}://{1}:{2}'.format(protocol, address, port))
+    connection_string = ','.join(connections)
+    return connection_string
