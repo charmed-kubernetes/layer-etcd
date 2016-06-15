@@ -52,7 +52,7 @@ class TestDeployment(unittest.TestCase):
                 " ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem" \
                 " ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem"
 
-        members = self.leader.run('{} etcdctl member list'.format(certs))[0].strip('\n')  # noqa
+        members = self.leader.run('{} etcdctl member list'.format(certs))[0].split('\n')  # noqa
         for item in members:
             # this is responded when TLS is enabled and we don't have proper
             # Keys. This is kind of a "ssl works test" but of the worst
