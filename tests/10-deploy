@@ -52,13 +52,16 @@ class TestDeployment(unittest.TestCase):
                 " ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem" \
                 " ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem"
 
-        members = self.leader.run('{} etcdctl member list'.format(certs))[0].split('\n')  # noqa
+        # format the command, and execute on the leader
+        out = self.leader.run('{} etcdctl member list'.format(certs))[0]
+        # turn the output into a list so we can iterate
+        members = out.split('\n')
         for item in members:
             # this is responded when TLS is enabled and we don't have proper
             # Keys. This is kind of a "ssl works test" but of the worst
             # variety... assuming the full stack completed.
             self.assertTrue('etcd cluster is unavailable' not in members)
-        self.assertTrue(len(members.split('\n')) == len(self.etcd)) - 1
+        self.assertTrue(len(members) == len(self.etcd))
 
 if __name__ == '__main__':
     unittest.main()
