@@ -78,7 +78,7 @@ cd etcd
 make fetch_resources
 ...
 cd resources
-cd tar xvfz etcd*.tar.gz
+tar xvfz etcd*.tar.gz
 ```
 
 You can then upgrade the charm using the resources found in this extracted
@@ -141,16 +141,6 @@ etcdctl member list
 
 # Known Limitations
 
-Scaling up works incredibly well. Scaling down however has proven problematic.
-The nodes do their best attempt to self-unregister; however the cluster can find
-itself in an inconsistent state with the current peering mechanisms.
-
-This is a known issue and you are encouraged to only scale Etcd up until [this
-problem has been resolved](https://github.com/juju-solutions/layer-etcd/issues/5).
-
-This charm requires resources to be provided to the charm in order to deploy
-on trusty hosts. This requires juju 2.0 or greater.
-
 If you destroy the leader - identified with the `(leader)` text prepended to
 any status messages: all TLS pki will be lost. No PKI migration occurs outside
 of the units requesting and registering the certificates. You have been warned.
@@ -159,3 +149,4 @@ of the units requesting and registering the certificates. You have been warned.
 ## Contributors
 
 - Charles Butler &lt;[charles.butler@canonical.com](mailto:charles.butler@canonical.com)&gt;
+- Mathew Bruzek  &lt;[mathew.bruzek@canonical.com](mailto:mathew.bruzek@canonical.com)&gt;
