@@ -165,10 +165,11 @@ def send_cluster_details(proxy):
     peers = etcdctl.member_list()
     cluster = []
     for peer in peers:
+        thispeer = peers[peer]
         # Potential member doing registration. Default to skip
-        if 'peer_urls' not in peer.keys() or not peer['peer_urls']:
+        if 'peer_urls' not in thispeer.keys() or not thispeer['peer_urls']:
             continue
-        peer_string = "{}={}".format(peer['name'], peer['peer_urls'])
+        peer_string = "{}={}".format(thispeer['name'], thispeer['peer_urls'])
         cluster.append(peer_string)
 
     proxy.set_cluster_string(','.join(cluster))
