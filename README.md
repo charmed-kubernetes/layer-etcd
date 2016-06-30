@@ -30,8 +30,8 @@ And add capacity with:
 juju add-unit -n 2 etcd
 ```
 
-Its recommended to run an odd number of machines as it has greater redundancy
-than even number (ie. with 4, you can lose 1 before quorum is lost, where as
+It's recommended to run an odd number of machines as it has greater redundancy
+than an even number (i.e. with 4, you can lose 1 before quorum is lost, whereas
 with 5, you can lose 2).
 
 ### Notes about cluster turn-up
@@ -96,7 +96,7 @@ juju action fetch <uuid>
 ```
 
 The health is also reported continuously via `juju status`. During initial
-cluster turn-up, its entirely reasonable for the health checks to fail. this
+cluster turn-up, it's entirely reasonable for the health checks to fail; this
 is not a situation to cause you alarm. The health-checks are being executed
 before the cluster has stabilized, and it should even out once the members
 start to come online and the update-status hook is run again.
