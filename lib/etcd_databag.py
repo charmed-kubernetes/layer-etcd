@@ -11,7 +11,7 @@ import os
 
 class EtcdDatabag:
     '''
-    This class represents a configuration object to ease configurtation of an
+    This class represents a configuration object to ease configuration of an
     etcd unit during deployment and reconfiguration. The full dict of data
     when expanded looks like the following:
 
