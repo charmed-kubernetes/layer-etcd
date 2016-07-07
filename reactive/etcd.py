@@ -152,12 +152,27 @@ def send_single_connection_details(db):
     # Set the connection string on the db relation.
     db.set_connection_string(connection_string)
 
-# #
-# @when('proxy.connected')
-# def send_cluster_details(proxy):
-#     etcd = EtcdHelper()
-#     proxy.provide_cluster_string(etcd.cluster_string())
-#
+
+@when('proxy.connected')
+def send_cluster_details(proxy):
+    cert = leader_get('client_certificate')
+    key = leader_get('client_key')
+    ca = leader_get('certificate_authority')
+    proxy.set_client_credentials(key, cert, ca)
+
+    # format a list of cluster participants
+    etcdctl = EtcdCtl()
+    peers = etcdctl.member_list()
+    cluster = []
+    for peer in peers:
+        thispeer = peers[peer]
+        # Potential member doing registration. Default to skip
+        if 'peer_urls' not in thispeer.keys() or not thispeer['peer_urls']:
+            continue
+        peer_string = "{}={}".format(thispeer['name'], thispeer['peer_urls'])
+        cluster.append(peer_string)
+
+    proxy.set_cluster_string(','.join(cluster))
 
 
 @when_not('etcd.installed')
