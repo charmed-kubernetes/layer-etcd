@@ -155,7 +155,10 @@ def send_single_connection_details(db):
 
 @when('proxy.connected')
 @when('etcd.ssl.placed')
+@when_any('etcd.leader.configured', 'cluster.joined')
 def send_cluster_details(proxy):
+    ''' Attempts to send the peer cluster string to
+    proxy units so they can join and act on behalf of the cluster. '''
     cert = leader_get('client_certificate')
     key = leader_get('client_key')
     ca = leader_get('certificate_authority')
