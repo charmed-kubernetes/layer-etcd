@@ -154,6 +154,7 @@ def send_single_connection_details(db):
 
 
 @when('proxy.connected')
+@when('etcd.ssl.placed')
 def send_cluster_details(proxy):
     cert = leader_get('client_certificate')
     key = leader_get('client_key')
