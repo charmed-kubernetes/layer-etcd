@@ -3,3 +3,7 @@ resources
 .tox
 .DS_Store
 __pycache__
+.coverage
+.unit-state.db
+*.swp
+.cache/*

@@ -1,0 +1,3 @@
+tests: "10-*"
+packages:
+  - amulet

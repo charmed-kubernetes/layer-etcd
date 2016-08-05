@@ -145,6 +145,16 @@ If you destroy the leader - identified with the `(leader)` text prepended to
 any status messages: all TLS pki will be lost. No PKI migration occurs outside
 of the units requesting and registering the certificates. You have been warned.
 
+Additionally, this charm breaks with no backwords compat/upgrade path at the trusty/xenial
+series boundary. Xenial forward will enable TLS by default. This is an incompatible break
+due to the nature of peer relationships, and how the certificates are generated/passed off.
+
+To migrate from trusty to xenial, the operator will be responsible for deploying the
+xenial etcd cluster, then issuing an etcd data dump on the trusty series, and importing
+that data into the new cluster. This can be performed on a single node due to the
+nature of how replicas work in Etcd.
+
+Any issues with the above process should be filed against the charm layer in github. 
 
 ## Contributors
 
