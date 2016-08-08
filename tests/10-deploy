@@ -9,7 +9,7 @@ class TestDeployment(unittest.TestCase):
     def setUpClass(cls):
         cls.d = amulet.Deployment(series='xenial')
         cls.d.add('etcd')
-        cls.d.setup(timeout=900)
+        cls.d.setup(timeout=1200)
         cls.d.sentry.wait()
         cls.etcd = cls.d.sentry['etcd']
         # find the leader
@@ -28,7 +28,7 @@ class TestDeployment(unittest.TestCase):
         application.'''
         # Ensure we aren't testing a single node
         if not len(self.etcd) > 1:
-            self.d.add_unit('etcd')
+            self.d.add_unit('etcd', timeout=1200)
             self.d.sentry.wait()
 
         for unit in self.etcd:

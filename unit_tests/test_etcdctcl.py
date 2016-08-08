@@ -22,7 +22,7 @@ class TestEtcdCtl:
                                      'member',
                                      'add',
                                      'etcd0',
-                                     'http://127.0.0.1:1313'])  # noqa
+                                     'https://127.0.0.1:1313'])  # noqa
 
     def test_unregister(self):
         with patch('etcdctl.check_output') as spcm:
