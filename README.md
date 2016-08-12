@@ -39,51 +39,7 @@ with 5, you can lose 2).
 The Etcd charm initializes a cluster using the Static configuration: which
 is the most "flexible" of all the installation options, considering it allows
 Etcd to be self-discovering using the peering relationships provided by
-Juju. Trying to start up etcd behind the corporate firewall? Thanks to
-resources, the charm is now completely stand alone, and supports this.
-
-# The charm told me to see the README
-
-You've been directed here because you're deploying this etcd charm onto a
-pre-Xenial and non-amd64-based Ubuntu platform, and we don't have etcd and
-etcdctl binaries for that platform. You will need to obtain such binaries
-somehow yourself (e.g. by downloading and building from source), then tell
-Juju about those binaries as detailed below.
-
-## Usage with your own binaries
-
-This charm supports resources, which means you can supply your own release of
-etcd and etcdctl to this charm. Which by nature makes it highly deployable on
-multiple architectures.
-
-### Supply your own binaries
-
-```shell
-juju upgrade-charm etcd --resource etcd=./path/to/etcd --resource etcdtcl=./path/to/etcdctl
-juju list-resources etcd
-```
-
-You will see your binaries have been provided by username@local, and the charm
-will reconfigure itself to deploy the provided binaries.
-
-### To test the binaries (an example for amd64 hosts)
-
-If you are simply deploying etcd, and the charm has halted demanding resources
-by telling you to consult the README, you can use a script contained in the
-charm itself.
-
-```shell
-charm pull etcd
-cd etcd
-make fetch_resources
-...
-cd resources
-tar xvfz etcd*.tar.gz
-```
-
-You can then upgrade the charm using the resources found in this extracted
-archive. Only the binaries will be necessary, you can safely ignore any
-additional files.
+Juju.
 
 # Health
 Health of the cluster can be checked by verified via juju actions
@@ -154,7 +110,7 @@ xenial etcd cluster, then issuing an etcd data dump on the trusty series, and im
 that data into the new cluster. This can be performed on a single node due to the
 nature of how replicas work in Etcd.
 
-Any issues with the above process should be filed against the charm layer in github. 
+Any issues with the above process should be filed against the charm layer in github.
 
 ## Contributors
 
