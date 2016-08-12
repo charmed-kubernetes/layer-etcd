@@ -4,5 +4,6 @@ includes:
   - 'layer:leadership'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
-exclude: ['Makefile', 'tests/10-tls-deploy.py']
+ignore:
+  -  tests/00-setup
 repo: https://github.com/juju-solutions/layer-etcd.git

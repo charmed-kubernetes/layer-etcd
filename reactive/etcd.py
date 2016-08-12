@@ -15,7 +15,6 @@ from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
-from charmhelpers.core.hookenv import resource_get
 
 from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import close_port
@@ -30,10 +29,8 @@ from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
 
-from pwd import getpwnam
 from shlex import split
 from subprocess import check_call
-from subprocess import CalledProcessError
 from tlslib import client_cert
 from tlslib import client_key
 
@@ -186,72 +183,21 @@ def install_etcd():
     16.04 (xenial) series. '''
     status_set('maintenance', 'Installing etcd.')
 
-    codename = host.lsb_release()['DISTRIB_CODENAME']
-
-    try:
-        etcd_path = resource_get('etcd')
-        etcdctl_path = resource_get('etcdctl')
-    # Not obvious but this blocks juju 1.25 clients
-    except NotImplementedError:
-        status_set('blocked', 'This charm requires the resource feature available in juju 2+')  # noqa
-        return
-
-    if not etcd_path or not etcdctl_path:
-        if codename == 'xenial':
-            # edge case where archive allows us a nice fallback on xenial
-            status_set('maintenance', 'Attempting install of etcd from apt')
-            pkg_list = ['etcd']
-            apt_update()
-            apt_install(pkg_list, fatal=True)
-            # Stop the service and remove the defaults
-            # I hate that I have to do this. Sorry short-lived local data #RIP
-            # State control is to prevent upgrade-charm from nuking cluster
-            # data.
-            if not is_state('etcd.package.adjusted'):
-                host.service('stop', 'etcd')
-                if os.path.exists('/var/lib/etcd/default'):
-                    shutil.rmtree('/var/lib/etcd/default')
-                set_state('etcd.package.adjusted')
-            set_state('etcd.installed')
-            return
-        else:
-            # edge case
-            status_set('blocked', 'Missing Resource: see README')
-    else:
-        install(etcd_path, '/usr/bin/etcd')
-        install(etcdctl_path, '/usr/bin/etcdctl')
-
-        host.add_group('etcd')
-
-        if not host.user_exists('etcd'):
-            host.adduser('etcd')
-            host.add_user_to_group('etcd', 'etcd')
-
-        os.makedirs('/var/lib/etcd/', exist_ok=True)
-        etcd_uid = getpwnam('etcd').pw_uid
-
-        os.chmod('/var/lib/etcd/', 0o775)
-        os.chown('/var/lib/etcd/', etcd_uid, -1)
-
-        # Trusty was the EOL for upstart, render its template if required
-        if codename == 'trusty':
-            render('upstart', '/etc/init/etcd.conf',
-                   {}, owner='root', group='root')
-            set_state('etcd.installed')
-            return
-
-        if not os.path.exists('/etc/systemd/system/etcd.service'):
-            render('systemd', '/etc/systemd/system/etcd.service',
-                   {}, owner='root', group='root')
-            # This will cause some greif if its been run before
-            # so allow it to be chatty and fail if we ever re-render
-            # and attempt re-enablement.
-            try:
-                check_call(split('systemctl enable etcd'))
-            except CalledProcessError:
-                pass
-
-        set_state('etcd.installed')
+    # edge case where archive allows us a nice fallback on xenial
+    status_set('maintenance', 'Attempting install of etcd from apt')
+    pkg_list = ['etcd']
+    apt_update()
+    apt_install(pkg_list, fatal=True)
+    # Stop the service and remove the defaults
+    # I hate that I have to do this. Sorry short-lived local data #RIP
+    # State control is to prevent upgrade-charm from nuking cluster
+    # data.
+    if not is_state('etcd.package.adjusted'):
+        host.service('stop', 'etcd')
+        if os.path.exists('/var/lib/etcd/default'):
+            shutil.rmtree('/var/lib/etcd/default')
+        set_state('etcd.package.adjusted')
+    set_state('etcd.installed')
 
 
 @when('etcd.installed')
