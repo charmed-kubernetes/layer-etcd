@@ -425,5 +425,5 @@ def status_set(status, message):
     ''' This is a fun little hack to give me the leader in status output
         without taking it over '''
     if is_leader():
-        message = "(leader) {}".format(message)
+        message = "{} (leader)".format(message)
     hess(status, message)
