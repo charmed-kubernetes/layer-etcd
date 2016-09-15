@@ -16,6 +16,7 @@ from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 
+from charmhelpers.core.hookenv import application_version_set
 from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import close_port
 from charmhelpers.core.hookenv import unit_get
@@ -31,6 +32,7 @@ from etcd_databag import EtcdDatabag
 
 from shlex import split
 from subprocess import check_call
+from subprocess import check_output
 from tlslib import client_cert
 from tlslib import client_key
 
@@ -49,6 +51,14 @@ def check_cluster_health():
     etcdctl = EtcdCtl()
     health = etcdctl.cluster_health()
     status_set('active', health['status'])
+
+
+@when('etcd.installed')
+def set_app_version():
+    # sneak in the version as well
+    cmd = ['etcd', '-version']
+    version = check_output(cmd).split(b'\n')[0].split(b':')[-1]
+    application_version_set(version)
 
 
 @hook('upgrade-charm')
