@@ -191,10 +191,8 @@ def install_etcd():
     ''' Attempt resource get on the "etcd" and "etcdctl" resources. If no
     resources are provided attempt to install from the archive only on the
     16.04 (xenial) series. '''
-    status_set('maintenance', 'Installing etcd.')
 
-    # edge case where archive allows us a nice fallback on xenial
-    status_set('maintenance', 'Attempting install of etcd from apt')
+    status_set('maintenance', 'Installing etcd from apt')
     pkg_list = ['etcd']
     apt_update()
     apt_install(pkg_list, fatal=True)
