@@ -62,7 +62,7 @@ def set_app_version():
     # Go Version: go1.6rc2
     # Go OS/Arch: linux/amd64
     cmd = ['etcd', '-version']
-    version = check_output(cmd).split(b'\n')[0].split(b':')[-1].ltrim()
+    version = check_output(cmd).split(b'\n')[0].split(b':')[-1].lstrip()
     application_version_set(version)
 
 
