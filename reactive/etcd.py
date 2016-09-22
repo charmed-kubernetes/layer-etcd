@@ -55,9 +55,14 @@ def check_cluster_health():
 
 @when('etcd.installed')
 def set_app_version():
-    # sneak in the version as well
+    ''' Surface the etcd application version on juju status '''
+    # Format of version output at the time of writing
+    # etcd Version: 2.2.5
+    # Git SHA: Not provided (use ./build instead of go build)
+    # Go Version: go1.6rc2
+    # Go OS/Arch: linux/amd64
     cmd = ['etcd', '-version']
-    version = check_output(cmd).split(b'\n')[0].split(b':')[-1]
+    version = check_output(cmd).split(b'\n')[0].split(b':')[-1].ltrim()
     application_version_set(version)
 
 
