@@ -63,7 +63,7 @@ def check_cluster_health():
     except Exception:
         peers = 0
 
-    status_message = "{0} with ({1}) known peers".format(unit_health, peers)
+    status_message = "{0} with {1} known peers".format(unit_health, peers)
     status_set('active', status_message)
 
 
