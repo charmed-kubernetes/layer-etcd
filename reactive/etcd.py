@@ -50,7 +50,21 @@ def check_cluster_health():
     ''' report on the cluster health every 5 minutes'''
     etcdctl = EtcdCtl()
     health = etcdctl.cluster_health()
-    status_set('active', health['status'])
+
+    # Determine if the unit is healthy or unhealthy
+    if 'healthy' in health['status']:
+        unit_health = "Healthy"
+    else:
+        unit_health = "Unhealthy"
+
+    # Determine units peer count, and surface 0 by default
+    try:
+        peers = len(etcdctl.member_list())
+    except Exception:
+        peers = 0
+
+    status_message = "{0} with ({1}) known peers".format(unit_health, peers)
+    status_set('active', status_message)
 
 
 @when('etcd.installed')
