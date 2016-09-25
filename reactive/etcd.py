@@ -63,7 +63,7 @@ def check_cluster_health():
     except Exception:
         peers = 0
 
-    status_message = "{0} with {1} known peers".format(unit_health, peers)
+    status_message = "{0} with {1} known peers.".format(unit_health, peers)
     status_set('active', status_message)
 
 
@@ -211,7 +211,7 @@ def install_etcd():
     resources are provided attempt to install from the archive only on the
     16.04 (xenial) series. '''
 
-    status_set('maintenance', 'Installing etcd from apt')
+    status_set('maintenance', 'Installing etcd from apt.')
     pkg_list = ['etcd']
     apt_update()
     apt_install(pkg_list, fatal=True)
@@ -256,7 +256,7 @@ def register_node_with_leader(cluster):
     for unit in peers:
         if 'client_urls' not in peers[unit].keys():
             # we cannot register. State not attainable.
-            msg = 'Waiting for unit to complete registration'
+            msg = 'Waiting for unit to complete registration.'
             status_set('waiting', msg)
             return
 
@@ -280,7 +280,7 @@ def register_node_with_leader(cluster):
     etcdctl = EtcdCtl()
     status = etcdctl.cluster_health()
     if 'unhealthy' in status:
-        status_set('blocked', 'Cluster not healthy')
+        status_set('blocked', 'Cluster not healthy.')
         return
     open_port(bag.port)
     set_state('etcd.registered')
@@ -310,7 +310,7 @@ def initialize_new_leader():
     etcdctl = EtcdCtl()
     status = etcdctl.cluster_health()
     if 'unhealthy' in status:
-        status_set('blocked', 'Cluster not healthy')
+        status_set('blocked', 'Cluster not healthy.')
         return
     # We have a healthy leader, broadcast initial data-points for followers
     open_port(bag.port)
