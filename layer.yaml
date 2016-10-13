@@ -1,3 +1,4 @@
+repo: https://github.com/juju-solutions/layer-etcd.git
 includes:
   - 'layer:basic'
   - 'layer:tls'
@@ -5,5 +6,4 @@ includes:
   - 'interface:etcd'
   - 'interface:etcd-proxy'
 ignore:
-  -  tests/00-setup
-repo: https://github.com/juju-solutions/layer-etcd.git
+  - tests

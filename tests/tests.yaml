@@ -1,3 +1,4 @@
 tests: "10-*"
 packages:
   - amulet
+reset: false
