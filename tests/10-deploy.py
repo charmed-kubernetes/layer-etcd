@@ -2,6 +2,7 @@
 
 import amulet
 import unittest
+import re
 
 
 class TestDeployment(unittest.TestCase):
@@ -10,7 +11,9 @@ class TestDeployment(unittest.TestCase):
         cls.d = amulet.Deployment(series='xenial')
         cls.d.add('etcd')
         cls.d.setup(timeout=1200)
-        cls.d.sentry.wait()
+        cls.d.sentry.wait_for_messages({'etcd':
+                                        re.compile('Healthy*|Unhealthy*')})
+        # cls.d.sentry.wait()
         cls.etcd = cls.d.sentry['etcd']
         # find the leader
         for unit in cls.etcd:
