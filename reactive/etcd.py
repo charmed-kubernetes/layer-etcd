@@ -10,7 +10,6 @@ from charms.reactive import hook
 
 from charms.templating.jinja2 import render
 
-from charmhelpers.core.hookenv import status_set as hess
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
