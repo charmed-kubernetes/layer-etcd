@@ -9,11 +9,12 @@ set -ex
 # cluster node, in a new state. Restoration of existing cluster state is not
 # supported at this time.
 
-ARCHIVE=etcd-data-$DATESTAMP.tar.gz
 DATESTAMP=$(date +%Y-%m-%d-%H.%M.%S)
+ARCHIVE=etcd-data-$DATESTAMP.tar.gz
 ETCD_DATA_DIR=/var/lib/etcd
 ETCD_PORT=$(config-get management_port)
 PRIVATE_ADDRESS=$(unit-get private-address)
+SKIP_BACKUP=$(action-get skip-backup)
 SNAPSHOT_ARCHIVE=$(resource-get snapshot)
 TARGET_PATH=$(action-get target)
 
@@ -31,11 +32,15 @@ fi
 
 if [ -d $ETCD_DATA_DIR/default ]
 then
-  juju-log "Backing up existing data found in $ETCD_DATA_DIR"
   cd $ETCD_DATA_DIR
+
   # might cause the action to fail, but not sure if its better to get the output
   # or to set a message and irritate the user, or just blindly delete their data.
-  tar cvf $TARGET_PATH/$ARCHIVE default
+  if [ "${SKIP_BACKUP}" != 'true' ]
+  then
+    juju-log "Backing up existing data found in $ETCD_DATA_DIR"
+    tar cvf $TARGET_PATH/$ARCHIVE default
+  fi
   rm -rf default
   mkdir default
   cd $CHARM_DIR
