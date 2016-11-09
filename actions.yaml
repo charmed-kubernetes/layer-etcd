@@ -11,15 +11,3 @@ snapshot:
       type: string
       default: '/home/ubuntu/etcd-snapshots'
       description: Location to save the etcd snapshot.
-restore:
-  description: Restore an etcd cluster's data from a snapshot tarball.
-  params:
-    target:
-      type: string
-      default: '/home/ubuntu'
-      description: Path on disk to save any pre-existing data.
-    skip-backup:
-      type: boolean
-      default: true
-      description: |
-        Dont backup any existing data, and skip directly to data restoration.
