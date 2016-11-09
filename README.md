@@ -122,13 +122,12 @@ juju deploy etcd new-etcd
 
 > The above code snippet will deploy a single unit of etcd, as 'new-etcd'
 
-Once the restore action has completed, evaluate the cluster health. If the unit
-is healthy, you may resume scaling the application to meet your needs.
-
-
 ```
 juju run-action etcd/0 restore target=/mnt/etcd-backups
 ```
+
+Once the restore action has completed, evaluate the cluster health. If the unit
+is healthy, you may resume scaling the application to meet your needs.
 
 - **param** target: destination directory to save the existing data.
 
