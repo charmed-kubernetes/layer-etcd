@@ -96,18 +96,6 @@ etcdctl member list
 
 # Operational Actions
 
-### Snapshot
-
-Allows the operator to snapshot a running clusters data for use in cloning,
-backing up, or migrating Etcd clusters. 
-
-```
-juju run-action etcd/0 snapshot target=/mnt/etcd-backups
-```
-
-- **param** target: destination directory to save the resulting snapshot archive.
-
-
 ### Restore
 
 Allows the operator to restore the data from a cluster-data snapshot. This
@@ -129,6 +117,7 @@ juju run-action etcd/0 restore target=/mnt/etcd-backups
 Once the restore action has completed, evaluate the cluster health. If the unit
 is healthy, you may resume scaling the application to meet your needs.
 
+
 - **param** target: destination directory to save the existing data.
 
 - **param** skip-backup: Don't backup any existing data.
@@ -147,8 +136,12 @@ $ juju run-action etcd/0 snapshot
 Action queued with id: b46d5d6f-5625-4320-8cda-b611c6ae580c
 ```
 
-Step 2: Download the snapshot tarball from the unit that created the snapshot
-and verify the sha256 sum
+Step 2: check the status of the action so you can grab the snapshot and verify
+the sum. The copy.cmd result ouput is a copy/paste command for you to download
+the exact snapshot that you just created.
+
+Download the snapshot tarball from the unit that created the snapshot and verify
+the sha256 sum
 
 ```
 $ juju show-action-output b46d5d6f-5625-4320-8cda-b611c6ae580c
@@ -173,7 +166,8 @@ Step 3: Deploy the new cluster leader, and attach the snapshot
 juju deploy etcd new-etcd --resource snapshot=./etcd-snapshot-2016-11-09-02.41.47.tar.gz
 ```
 
-Step 4: Re-Initialize the master with the data from the resource
+Step 4: Re-Initialize the master with the data from the resource we just attached
+in step 3.
 
 ```
 juju run-action new-etcd/0 restore
@@ -185,17 +179,22 @@ Step 5: Scale and operate as required
 # Known Limitations
 
 #### Loss of PKI warning
-If you destroy the leader - identified with the `*` text prepended to
-the unit id: all TLS pki will be lost. No PKI migration occurs outside
-of the units requesting and registering the certificates. You have been warned.
+If you destroy the leader - identified with the `(leader)` text prepended to
+any status messages: all TLS pki will be lost. No PKI migration occurs outside
+of the units requesting and registering the certificates.
 
-#### TLS Defaults Warning
-Additionally, this charm breaks with no backwords compat/upgrade path at the trusty/xenial
+> Important:  Mismanaging this configuration will result in locking yourself
+> out of the cluster, and can potentially break existing deployments in very
+> strange ways relating to x509 validation of certificates, which affects both
+> servers and clients.
+
+#### TLS Defaults Warning (for trusty etcd charm users)
+Additionally, this charm breaks with no backwards compat/upgrade path at the Trusty/Xenial
 series boundary. Xenial forward will enable TLS by default. This is an incompatible break
 due to the nature of peer relationships, and how the certificates are generated/passed off.
 
-To migrate from trusty to xenial, the operator will be responsible for deploying the
-xenial etcd cluster, then issuing an etcd data dump on the trusty series, and importing
+To migrate from Trusty to Xenial, the operator will be responsible for deploying the
+Xenial etcd cluster, then issuing an etcd data dump on the trusty series, and importing
 that data into the new cluster. This can be performed on a single node due to the
 nature of how replicas work in Etcd.
 
@@ -203,11 +202,11 @@ Any issues with the above process should be filed against the charm layer in git
 
 #### Restoring from snapshot on a scaled cluster
 
-Restoring from a snapshot on a scaled cluster will yield in a broken cluster.
-Etcd performs clustering during unit turn-up, and state is stored in etcd itself.
+Restoring from a snapshot on a scaled cluster will result in a broken cluster.
+Etcd performs clustering during unit turn-up, and state is stored in Etcd itself.
 During the snapshot restore phase, a new cluster ID is initialized, and peers
 are dropped from the snapshot state to enable snapshot restoration. Please
-follow the migration instructions above in the migration guide.
+follow the migration instructions above in the restore action description.
 
 ## Contributors
 

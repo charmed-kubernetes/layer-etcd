@@ -9,7 +9,9 @@ set -ex
 # cluster node, in a new state. Restoration of existing cluster state is not
 # supported at this time.
 
+# this annoys my OCD
 DATESTAMP=$(date +%Y-%m-%d-%H.%M.%S)
+
 ARCHIVE=etcd-data-$DATESTAMP.tar.gz
 ETCD_DATA_DIR=/var/lib/etcd
 ETCD_PORT=$(config-get management_port)
@@ -40,6 +42,8 @@ then
   then
     juju-log "Backing up existing data found in $ETCD_DATA_DIR"
     tar cvf $TARGET_PATH/$ARCHIVE default
+    action-set backup.path="$TARGET_PATH/$ARCHIVE"
+    action-set backup.sha256sum=$(sha256sum $TARGET_PATH/$ARCHIVE | cut -d' ' -f1)
   fi
   rm -rf default
   mkdir default
@@ -49,7 +53,8 @@ fi
 juju-log "Stopping Etcd to perform the restore."
 systemctl stop etcd
 
-# Give systemd and etcd a couple seconds to catch up
+# Give systemd and etcd a couple seconds to catch up. systemctl is blocking
+# so this is likely uneccesary other than ensuring we're not racing.
 sleep 3
 
 # Unpack the resource
@@ -58,15 +63,28 @@ chown -R etcd:etcd $ETCD_DATA_DIR
 
 # Fork and start the etcd node in the background to drop any peer/client information
 etcd -data-dir=$ETCD_DATA_DIR/default -wal-dir=$ETCD_DATA_DIR/default/member/wal -force-new-cluster &
-# give it a few seconds to do some initialization
-sleep 5
+
+# Get persinickety about the error state here, as this will fail if we race with
+# systemd and etcd.
+set +x
+until etcdctl member list | grep "http://localhost"; do
+  sleep 1
+done
+set -x
+
 # Reconfigure the data-store peer-url on the fly. This will fail if there are
 # more than a single unit. #TODO Make this more robust. This was necessary when
 # scaling the unit. The new-init seems to be over-riding the advertise flags set
 # in the defaults file.
 ETCD_CLUSTER_UNIT_ID=$(etcdctl member list | cut -d ':' -f1)
 etcdctl member update $ETCD_CLUSTER_UNIT_ID https://$PRIVATE_ADDRESS:$ETCD_PORT
-sleep 3
+
+until etcdctl member list | grep "https://$PRIVATE_ADDRESS:$ETCD_PORT"; do
+  juju-log "Waiting on etcd peer url configuration to propigate"
+  # give this a bit of a longer timeout to ensure the data has settled once we
+  # break
+  sleep 5
+done
 # terminate the instance and resume normal operation
 pkill etcd
 
