@@ -107,12 +107,90 @@ juju run-action etcd/0 snapshot target=/mnt/etcd-backups
 
 - **param** target: destination directory to save the resulting snapshot archive.
 
+
+### Restore
+
+Allows the operator to restore the data from a cluster-data snapshot. This
+comes with caveats and a very specific path to restore a cluster:
+
+The cluster must be in a state of only having a single member. So it's best to
+deploy a new cluster using the etcd charm, without adding any additional units.
+
+```
+juju deploy etcd new-etcd
+```
+
+> The above code snippet will deploy a single unit of etcd, as 'new-etcd'
+
+Once the restore action has completed, evaluate the cluster health. If the unit
+is healthy, you may resume scaling the application to meet your needs.
+
+
+```
+juju run-action etcd/0 restore target=/mnt/etcd-backups
+```
+
+- **param** target: destination directory to save the existing data.
+
+- **param** skip-backup: Don't backup any existing data.
+
+
+# Migrating etcd
+
+Migrating Etcd is a fairly easy task. The process is mostly copy/pasteable.
+
+Step 1: Snapshot your existing cluster. This is encapsuluted in the `snapshot`
+action.
+
+```
+$ juju run-action etcd/0 snapshot
+
+Action queued with id: b46d5d6f-5625-4320-8cda-b611c6ae580c
+```
+
+Step 2: Download the snapshot tarball from the unit that created the snapshot
+and verify the sha256 sum
+
+```
+$ juju show-action-output b46d5d6f-5625-4320-8cda-b611c6ae580c
+results:
+  copy:
+    cmd: juju scp etcd/0:/home/ubuntu/etcd-snapshots/etcd-snapshot-2016-11-09-02.41.47.tar.gz
+      .
+  snapshot:
+    path: /home/ubuntu/etcd-snapshots/etcd-snapshot-2016-11-09-02.41.47.tar.gz
+    sha256: 1dea04627812397c51ee87e313433f3102f617a9cab1d1b79698323f6459953d
+    size: 68K
+status: completed
+
+$ juju scp etcd/0:/home/ubuntu/etcd-snapshots/etcd-snapshot-2016-11-09-02.41.47.tar.gz .
+
+$ sha256sum etcd-snapshot-2016-11-09-02.41.47.tar.gz
+```
+
+Step 3: Deploy the new cluster leader, and attach the snapshot
+
+```
+juju deploy etcd new-etcd --resource snapshot=./etcd-snapshot-2016-11-09-02.41.47.tar.gz
+```
+
+Step 4: Re-Initialize the master with the data from the resource
+
+```
+juju run-action new-etcd/0 restore
+```
+
+Step 5: Scale and operate as required
+
+
 # Known Limitations
 
-If you destroy the leader - identified with the `*` text next to the unit number:
-all TLS pki will be lost. No PKI migration occurs outside
+#### Loss of PKI warning
+If you destroy the leader - identified with the `*` text prepended to
+the unit id: all TLS pki will be lost. No PKI migration occurs outside
 of the units requesting and registering the certificates. You have been warned.
 
+#### TLS Defaults Warning
 Additionally, this charm breaks with no backwords compat/upgrade path at the trusty/xenial
 series boundary. Xenial forward will enable TLS by default. This is an incompatible break
 due to the nature of peer relationships, and how the certificates are generated/passed off.
@@ -123,6 +201,14 @@ that data into the new cluster. This can be performed on a single node due to th
 nature of how replicas work in Etcd.
 
 Any issues with the above process should be filed against the charm layer in github.
+
+#### Restoring from snapshot on a scaled cluster
+
+Restoring from a snapshot on a scaled cluster will yield in a broken cluster.
+Etcd performs clustering during unit turn-up, and state is stored in etcd itself.
+During the snapshot restore phase, a new cluster ID is initialized, and peers
+are dropped from the snapshot state to enable snapshot restoration. Please
+follow the migration instructions above in the migration guide.
 
 ## Contributors
 
