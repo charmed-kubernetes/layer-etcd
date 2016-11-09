@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -ex
+
+# Snippet from: https://coreos.com/etcd/docs/latest/admin_guide.html
+# Snapshot a running etcd cluster data.
+# This command will rewrite some of the metadata contained in the backup
+# (specifically, the node ID and cluster ID), which means that the node will
+# lose its former identity. In order to recreate a cluster from the backup, you
+# will need to start a new, single-node cluster. The metadata is rewritten to
+# prevent the new node from inadvertently being joined onto an existing cluster.
+
+ETCD_BACKUP_TARGET_DIR=$(action-get target)
+ETCD_DATA_DIR=/var/lib/etcd/default
+DATE_STAMP=$(date +%Y-%m-%d-%H.%M.%S)
+ARCHIVE=etcd-snapshot-$DATE_STAMP.tar.gz
+
+# Ensure the backupd target exists
+mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_ID
+
+# Dump the data currently in the cluster
+etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+
+# Create the backup archive
+cd $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+tar cvfz ../$ARCHIVE .
+
+# keep things tidy
+cd ..
+rm -rf $JUJU_ACTION_UUID
+
+action-set snapshot.path="$ETCD_BACKUP_TARGET_DIR/$ARCHIVE"
+action-set snapshot.size="$(du -h $ETCD_BACKUP_TARGET_DIR/$ARCHIVE | cut -d$'\t' -f1)"
+action-set snapshot.sha256="$(sha256sum $ETCD_BACKUP_TARGET_DIR/$ARCHIVE | cut -d' ' -f1)"
+action-set copy.cmd="juju scp $JUJU_UNIT_NAME:$ETCD_BACKUP_TARGET_DIR/$ARCHIVE ."

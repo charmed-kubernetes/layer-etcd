@@ -4,3 +4,10 @@ package-client-credentials:
     description: |
      Generate a tarball of the client certificates to connect to the cluster
      remotely.
+snapshot:
+  description: Export and compress a backup of the data in the Etcd cluster.
+  params:
+    target:
+      type: string
+      default: '/home/ubuntu/etcd-snapshots'
+      description: Location to save the etcd snapshot.

@@ -94,11 +94,23 @@ export ETCDCTL_ENDPOINT=https://{ip of etcd host}:2379
 etcdctl member list
 ```
 
+# Operational Actions
+
+### Snapshot
+
+Allows the operator to snapshot a running clusters data for use in cloning,
+backing up, or migrating Etcd clusters. 
+
+```
+juju run-action etcd/0 snapshot target=/mnt/etcd-backups
+```
+
+- **param** target: destination directory to save the resulting snapshot archive.
 
 # Known Limitations
 
-If you destroy the leader - identified with the `(leader)` text prepended to
-any status messages: all TLS pki will be lost. No PKI migration occurs outside
+If you destroy the leader - identified with the `*` text next to the unit number:
+all TLS pki will be lost. No PKI migration occurs outside
 of the units requesting and registering the certificates. You have been warned.
 
 Additionally, this charm breaks with no backwords compat/upgrade path at the trusty/xenial
