@@ -10,11 +10,11 @@ from charms.reactive import hook
 
 from charms.templating.jinja2 import render
 
-from charmhelpers.core.hookenv import status_set as hess
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
+from charmhelpers.core.hookenv import status_set
 
 from charmhelpers.core.hookenv import application_version_set
 from charmhelpers.core.hookenv import open_port
@@ -446,11 +446,3 @@ def close_open_ports():
 def install(src, tgt):
     ''' This method wraps the bash "install" command '''
     return check_call(split('install {} {}'.format(src, tgt)))
-
-
-def status_set(status, message):
-    ''' This is a fun little hack to give me the leader in status output
-        without taking it over '''
-    if is_leader():
-        message = "{} (leader)".format(message)
-    hess(status, message)
