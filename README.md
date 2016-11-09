@@ -122,6 +122,18 @@ is healthy, you may resume scaling the application to meet your needs.
 
 - **param** skip-backup: Don't backup any existing data.
 
+### Snapshot
+
+Allows the operator to snapshot a running clusters data for use in cloning,
+backing up, or migrating Etcd clusters.
+
+```
+juju run-action etcd/0 snapshot target=/mnt/etcd-backups
+```
+
+- **param** target: destination directory to save the resulting snapshot archive.
+
+
 
 # Migrating etcd
 
@@ -179,8 +191,8 @@ Step 5: Scale and operate as required
 # Known Limitations
 
 #### Loss of PKI warning
-If you destroy the leader - identified with the `(leader)` text prepended to
-any status messages: all TLS pki will be lost. No PKI migration occurs outside
+If you destroy the leader - identified with the `*` text next to the unit number:
+all TLS pki will be lost. No PKI migration occurs outside
 of the units requesting and registering the certificates.
 
 > Important:  Mismanaging this configuration will result in locking yourself
@@ -195,8 +207,8 @@ due to the nature of peer relationships, and how the certificates are generated/
 
 To migrate from Trusty to Xenial, the operator will be responsible for deploying the
 Xenial etcd cluster, then issuing an etcd data dump on the trusty series, and importing
-that data into the new cluster. This can be performed on a single node due to the
-nature of how replicas work in Etcd.
+that data into the new cluster. This can be only be performed on a single node
+due to the nature of how replicas work in Etcd.
 
 Any issues with the above process should be filed against the charm layer in github.
 
