@@ -66,5 +66,6 @@ class TestDeployment(unittest.TestCase):
             self.assertTrue('etcd cluster is unavailable' not in members)
         self.assertTrue(len(members) == len(self.etcd))
 
+
 if __name__ == '__main__':
     unittest.main()
