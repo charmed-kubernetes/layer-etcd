@@ -455,13 +455,10 @@ def format_and_mount_storage():
     if os.path.isdir('/var/lib/etcd/default'):
         hookenv.log('Detected existing data, migrating to new location.')
         # Migrate any existing data
-        cmd = ['mkdir', '-p', '/mnt/etcd-migrate']
-        hookenv.log('With command: {}'.format(' '.join(cmd)))
-        check_call(cmd)
-
+        os.makedirs('/mnt/etcd-migrate', exist_ok=True)
         mount_volume(block, '/mnt/etcd-migrate')
 
-        cmd = ['rsync', '-avz', '/var/lib/etcd/default', '/mnt/etcd-migrate/']
+        cmd = ['rsync', '-azp', '/var/lib/etcd/default', '/mnt/etcd-migrate/']
         hookenv.log('With command: {}'.format(' '.join(cmd)))
         check_call(cmd)
 

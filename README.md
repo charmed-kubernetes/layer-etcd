@@ -94,6 +94,48 @@ export ETCDCTL_ENDPOINT=https://{ip of etcd host}:2379
 etcdctl member list
 ```
 
+# Persistent Storage
+
+Many cloud providers use ephemeral storage. It's usually a good idea to place
+any data-stores when using cloud provider infrastructure on persistent volumes
+that exist outside of the ephemeral storage on the unit.
+
+Juju abstracts this with the [storage provider](https://jujucharms.com/docs/stable/charms-storage)
+
+
+To add a unit of storage we'll first need to discover what storage types the
+cloud provides to us, which can be discerned with:
+```
+juju list-storage-pools
+```
+
+#### AWS Storage example
+
+To add SSD backed EBS storage from AWS, the following example provisions a
+single 10GB SSD EBS instance and attaches it to the etcd/0 unit.
+
+```
+juju add-storage etcd/0 data=ebs-ssd,10G
+```
+
+#### GCE Storage example
+
+To add Persistent Disk storage from GCE, the following example
+provisions a single 10GB PD instance and attaches it to the etcd/0 unit.
+
+```
+juju add-storage etcd/0 data=gce,10G
+```
+
+#### Cinder Storage example
+
+To add Persistent Disk storage from Open Stack Cinder, the following example
+provisions a single 10GB PD instance and attaches it to the etcd/0 unit.
+
+```
+juju add-storage etcd/0 data=cinder,10G
+```
+
 # Operational Actions
 
 ### Restore
