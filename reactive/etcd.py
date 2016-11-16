@@ -15,6 +15,7 @@ from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import status_set
+from charmhelpers.core.hookenv import storage_get
 
 from charmhelpers.core.hookenv import application_version_set
 from charmhelpers.core.hookenv import open_port
@@ -429,6 +430,84 @@ def passive_dismiss_context(cluster):
     ''' All units undergo the departing phase. This is a no-op unless you
         are the leader '''
     cluster.dismiss()
+
+
+@hook('data-storage-attached')
+def format_and_mount_storage():
+    ''' This allows users to request persistent volumes from the cloud provider
+    for the purposes of disaster recovery. '''
+
+    # Query juju for the information about the block storage
+    device_info = storage_get()
+    block = device_info['location']
+
+    if volume_is_mounted(block):
+        hookenv.log('Device is already attached to the system.')
+        hookenv.log('Cowardly refusing to take action against {}'.format(block))
+
+    # Format the device in non-interactive mode
+    cmd = ['mkfs.ext4', device_info['location'], '-F']
+    hookenv.log('Creating filesystem on {}'.format(device_info['location']))
+    hookenv.log('With command: {}'.format(' '.join(cmd)))
+    check_call(cmd)
+
+    # Only attempt migration if directory exists
+    if os.path.isdir('/var/lib/etcd/default'):
+        hookenv.log('Detected existing data, migrating to new location.')
+        # Migrate any existing data
+        os.makedirs('/mnt/etcd-migrate', exist_ok=True)
+        mount_volume(block, '/mnt/etcd-migrate')
+
+        cmd = ['rsync', '-azp', '/var/lib/etcd/default', '/mnt/etcd-migrate/']
+        hookenv.log('With command: {}'.format(' '.join(cmd)))
+        check_call(cmd)
+
+        unmount_path('/mnt/etcd-migrate')
+
+    # halt etcd to perform the data-store migration
+    host.service_stop('etcd')
+
+    with open('/etc/fstab', 'r') as fp:
+        contents = fp.readlines()
+
+    found = 0
+    # scan fstab for the device
+    for line in contents:
+        if block in line:
+            found = found + 1
+
+    # if device not in fstab, append so it persists through reboots
+    if not found > 0:
+        append = "{} /var/lib/etcd ext4 defaults 0 0".format(block)
+        with open('/etc/fstab', 'a') as fp:
+            fp.writelines([append])
+
+    mount_volume(block, '/var/lib/etcd')
+    # handle first run during early-attach storage, pre-config-changed hook.
+    os.makedirs('/var/lib/etcd/default', exist_ok=True)
+
+    # Finally re-establish etcd operation
+    host.service_restart('etcd')
+
+
+def volume_is_mounted(volume):
+    ''' Takes a hardware path and returns true/false if it is mounted '''
+    cmd = ['df', '-t', 'ext4']
+    out = check_output(cmd).decode('utf-8')
+    return volume in out
+
+
+def mount_volume(volume, location):
+    ''' Takes a device path and mounts it to location '''
+    cmd = ['mount', volume, location]
+    hookenv.log("Mounting {0} to {1}".format(volume, location))
+    check_call(cmd)
+
+def unmount_path(location):
+    ''' Unmounts a mounted volume at path '''
+    cmd = ['umount', location]
+    hookenv.log("Unmounting {0}".format(location))
+    check_call(cmd)
 
 
 def close_open_ports():

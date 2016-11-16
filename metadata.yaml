@@ -21,6 +21,13 @@ resources:
     description: Tarball snapshot of an etcd clusters data.
 series:
   - xenial
+storage:
+  data:
+   type: block
+   description: Data volume to store the Etcd wal file and data.
+   multiple:
+     range: 0-1
+   minimum-size: 1G
 subordinate: false
 tags:
   - database

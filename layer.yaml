@@ -7,3 +7,6 @@ includes:
   - 'interface:etcd-proxy'
 ignore:
   - tests
+options:
+  basic:
+    packages: ['rsync']
