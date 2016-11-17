@@ -11,7 +11,6 @@ from charms.reactive import hook
 from charms.templating.jinja2 import render
 
 from charmhelpers.core.hookenv import log
-from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import status_set
@@ -443,7 +442,7 @@ def format_and_mount_storage():
 
     if volume_is_mounted(block):
         hookenv.log('Device is already attached to the system.')
-        hookenv.log('Cowardly refusing to take action against {}'.format(block))
+        hookenv.log('Refusing to take action against {}'.format(block))
 
     # Format the device in non-interactive mode
     cmd = ['mkfs.ext4', device_info['location'], '-F']
@@ -502,6 +501,7 @@ def mount_volume(volume, location):
     cmd = ['mount', volume, location]
     hookenv.log("Mounting {0} to {1}".format(volume, location))
     check_call(cmd)
+
 
 def unmount_path(location):
     ''' Unmounts a mounted volume at path '''
