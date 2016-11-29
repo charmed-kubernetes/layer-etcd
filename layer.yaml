@@ -1,12 +1,23 @@
 repo: https://github.com/juju-solutions/layer-etcd.git
 includes:
   - 'layer:basic'
-  - 'layer:tls'
+  - 'layer:tls-client'
   - 'layer:leadership'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
 ignore:
   - tests
+defines:
+  tls_backup_path:
+    type: string
+    default: /home/ubuntu/etcd-tls-backup
+    description: The absolute path to store any tls_certificate backups.
 options:
   basic:
     packages: ['rsync']
+  tls-client:
+    ca_certificate_path: /etc/ssl/etcd/ca.crt
+    server_certificate_path: /etc/ssl/etcd/server.crt
+    server_key_path: /etc/ssl/etcd/server.key
+    client_certificate_path: /etc/ssl/etcd/client.crt
+    client_certificate_key: /etc/ssl/etcd/client.key

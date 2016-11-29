@@ -33,8 +33,6 @@ from etcd_databag import EtcdDatabag
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
-from tlslib import client_cert
-from tlslib import client_key
 
 import os
 import charms.leadership  # noqa
@@ -42,7 +40,6 @@ import shutil
 import time
 
 # this was in the layer-tls readme
-set_state('tls.client.authorization.required')
 
 
 @when_any('etcd.registered', 'etcd.leader.configured')
@@ -340,52 +337,52 @@ def relay_client_credentials():
         return
 
 
-@when('leadership.is_leader')
-@when('etcd.ssl.placed')
-@when_not('client-credentials-relayed')
-def broadcast_client_credentials():
-    ''' As the leader, copy the client cert and key to the charm dir and set
-    the contents as leader data.'''
-    charm_dir = os.getenv('CHARM_DIR')
-    client_cert(None, charm_dir)
-    client_key(None, charm_dir)
-    with open('client.crt') as fp:
-        client_certificate = fp.read()
-    with open('client.key') as fp:
-        client_certificate_key = fp.read()
-    leader_set({'client_certificate': client_certificate,
-                'client_key': client_certificate_key})
-    set_state('client-credentials-relayed')
+# @when('leadership.is_leader')
+# @when('etcd.ssl.placed')
+# @when_not('client-credentials-relayed')
+# def broadcast_client_credentials():
+#     ''' As the leader, copy the client cert and key to the charm dir and set
+#     the contents as leader data.'''
+#     charm_dir = os.getenv('CHARM_DIR')
+#     client_cert(None, charm_dir)
+#     client_key(None, charm_dir)
+#     with open('client.crt') as fp:
+#         client_certificate = fp.read()
+#     with open('client.key') as fp:
+#         client_certificate_key = fp.read()
+#     leader_set({'client_certificate': client_certificate,
+#                 'client_key': client_certificate_key})
+#     set_state('client-credentials-relayed')
 
 
-@when('tls.server.certificate available')
-@when_not('etcd.ssl.placed')
-def install_etcd_certificates():
-    ''' Copy the server cert and key to /etc/ssl/etcd and set the
-    etcd.ssl.placed state. '''
-    etcd_ssl_path = '/etc/ssl/etcd'
-    if not os.path.exists(etcd_ssl_path):
-        os.makedirs(etcd_ssl_path)
-
-    kv = unitdata.kv()
-    cert = kv.get('tls.server.certificate')
-    with open('{}/server.pem'.format(etcd_ssl_path), 'w+') as f:
-        f.write(cert)
-    with open('{}/ca.pem'.format(etcd_ssl_path), 'w+') as f:
-        f.write(leader_get('certificate_authority'))
-
-    # schenanigans - each server makes its own key, when generating
-    # the CSR. This is why its "magically" present.
-    keypath = 'easy-rsa/easyrsa3/pki/private/{}.key'
-    server = os.getenv('JUJU_UNIT_NAME').replace('/', '_')
-    if os.path.exists(keypath.format(server)):
-        shutil.copyfile(keypath.format(server),
-                        '{}/server-key.pem'.format(etcd_ssl_path))
-    else:
-        shutil.copyfile(keypath.format(unit_get('public-address')),
-                        '{}/server-key.pem'.format(etcd_ssl_path))
-
-    set_state('etcd.ssl.placed')
+# @when('tls.server.certificate available')
+# @when_not('etcd.ssl.placed')
+# def install_etcd_certificates():
+#     ''' Copy the server cert and key to /etc/ssl/etcd and set the
+#     etcd.ssl.placed state. '''
+#     etcd_ssl_path = '/etc/ssl/etcd'
+#     if not os.path.exists(etcd_ssl_path):
+#         os.makedirs(etcd_ssl_path)
+#
+#     kv = unitdata.kv()
+#     cert = kv.get('tls.server.certificate')
+#     with open('{}/server.pem'.format(etcd_ssl_path), 'w+') as f:
+#         f.write(cert)
+#     with open('{}/ca.pem'.format(etcd_ssl_path), 'w+') as f:
+#         f.write(leader_get('certificate_authority'))
+#
+#     # schenanigans - each server makes its own key, when generating
+#     # the CSR. This is why its "magically" present.
+#     keypath = 'easy-rsa/easyrsa3/pki/private/{}.key'
+#     server = os.getenv('JUJU_UNIT_NAME').replace('/', '_')
+#     if os.path.exists(keypath.format(server)):
+#         shutil.copyfile(keypath.format(server),
+#                         '{}/server-key.pem'.format(etcd_ssl_path))
+#     else:
+#         shutil.copyfile(keypath.format(unit_get('public-address')),
+#                         '{}/server-key.pem'.format(etcd_ssl_path))
+#
+#     set_state('etcd.ssl.placed')
 
 
 @when_not('etcd.pillowmints')
