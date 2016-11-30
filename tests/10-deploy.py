@@ -51,9 +51,10 @@ class TestDeployment(unittest.TestCase):
         ''' Test we have the same number of units deployed and reporting in
         the etcd cluster as participating'''
 
-        certs = "ETCDCTL_KEY_FILE=/etc/ssl/etcd/server-key.pem " \
-                " ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem" \
-                " ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem"
+        # The spacing here is semi-important as its a string of ENV exports
+        certs = "ETCDCTL_KEY_FILE=/etc/ssl/etcd/server.key " \
+                " ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.crt" \
+                " ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.crt"
 
         # format the command, and execute on the leader
         out = self.leader.run('{} etcdctl member list'.format(certs))[0]

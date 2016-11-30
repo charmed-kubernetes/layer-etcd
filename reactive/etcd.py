@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from charms import layer
+
 from charms.reactive import when
 from charms.reactive import when_any
 from charms.reactive import when_not
@@ -19,10 +21,8 @@ from charmhelpers.core.hookenv import storage_get
 from charmhelpers.core.hookenv import application_version_set
 from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import close_port
-from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
-from charmhelpers.core import unitdata
 from charmhelpers.fetch import apt_update
 from charmhelpers.fetch import apt_install
 
@@ -33,13 +33,13 @@ from etcd_databag import EtcdDatabag
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
+from subprocess import CalledProcessError
 
 import os
 import charms.leadership  # noqa
 import shutil
+import socket
 import time
-
-# this was in the layer-tls readme
 
 
 @when_any('etcd.registered', 'etcd.leader.configured')
@@ -77,10 +77,54 @@ def set_app_version():
     application_version_set(version)
 
 
+@when_not('certificates.available')
+def missing_relation_notice():
+    status_set('blocked', 'Missing relation to certificate authority.')
+
+
+@when('certificates.available')
+@when_not('etcd.ssl.placed')
+def prepare_tls_certificates(tls):
+    status_set('maintenance', 'Requesting tls certificates.')
+    common_name = hookenv.unit_public_ip()
+    sans = []
+    sans.append(hookenv.unit_public_ip())
+    sans.append(hookenv.unit_private_ip())
+    sans.append(socket.gethostname())
+    certificate_name = hookenv.local_unit().replace('/', '_')
+    tls.request_server_cert(common_name, sans, certificate_name)
+
+
+@when('tls_client.ca.saved', 'tls_client.server.key.saved',
+      'tls_client.server.certificate.saved',
+      'tls_client.client.certificate.saved')
+@when_not('etcd.ssl.placed')
+def spam_ownership_of_tls_certs():
+    ''' Spam ownership of the TLS certificates until it sticks.'''
+    # We could potentially encounter this method while we're still saving keys.
+    # the granular decorators should help mitigate that. The end result is we
+    # want to change permissions on the TLS certs before execution proceeds.
+    try:
+            # I'm going to make a wild assumption that ALL the requisit TLS
+            # certs are in the basepath of the server certificate
+        opts = layer.options('tls-client')
+        cert_dir = os.path.dirname(opts['server_certificate_path'])
+        check_call(['chown', '-R', 'etcd:root', cert_dir])
+        set_state('etcd.ssl.placed')
+    except CalledProcessError:
+        log('Failed to change ownership of TLS certificates.')
+
+
 @hook('upgrade-charm')
 def remove_states():
     # upgrade-charm issues when we rev resources and the charm. Assume an upset
     remove_state('etcd.installed')
+    # TODO: The below
+    # I want a condition to actually physically check for new certificates.
+    # I think on charm upgrade this is appropriate. There might be additional
+    # use cases I'm not thinking of here, so please be liberal with changes.
+    remove_state('etcd.ssl.placed')
+    remove_state('etcd.tls.secured')
 
 
 @when('etcd.installed')
@@ -389,9 +433,15 @@ def relay_client_credentials():
 def render_default_user_ssl_exports():
     ''' Add secure credentials to default user environment configs,
     transparently adding TLS '''
-    evars = ['export ETCDCTL_KEY_FILE=/etc/ssl/etcd/server-key.pem\n',  # noqa
-             'export ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.pem\n',
-             'export ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.pem\n']
+    opts = layer.options('tls-client')
+
+    ca_path = opts['ca_certificate_path']
+    server_crt = opts['server_certificate_path']
+    server_key = opts['server_key_path']
+
+    evars = ['export ETCDCTL_KEY_FILE={}\n'.format(server_key),
+             'export ETCDCTL_CERT_FILE={}\n'.format(server_crt),
+             'export ETCDCTL_CA_FILE={}\n'.format(ca_path)]
 
     with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
         fp.writelines(evars)
