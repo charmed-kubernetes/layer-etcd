@@ -186,9 +186,9 @@ def follower_config_changed():
 def send_cluster_connection_details(cluster, db):
     ''' Need to set the cluster connection string and
     the client key and certificate on the relation object. '''
-    cert = leader_get('client_certificate')
-    key = leader_get('client_key')
-    ca = leader_get('certificate_authority')
+    cert = read_tls_cert('client_certificate')
+    key = read_tls_cert('client_key')
+    ca = read_tls_cert('certificate_authority')
 
     # Set the key, cert, and ca on the db relation
     db.set_client_credentials(key, cert, ca)
@@ -480,11 +480,11 @@ def read_tls_cert(cert):
     opts = layer.options('tls-client')
 
     # Retain a dict of the certificate paths
-    cert_paths = {'ca': opts['ca_certificate_path'],
+    cert_paths = {'ca.crt': opts['ca_certificate_path'],
                   'server.crt': opts['server_certificate_path'],
                   'server.key': opts['server_key_path'],
-                  'client.crt': opts['client_certificate'],
-                  'client.key': opts['client_certificate_key']}
+                  'client.crt': opts['client_certificate_path'],
+                  'client.key': opts['client_key_path']}
 
     # If requesting a cert we dont know about, raise a ValueError
     if cert not in cert_paths.keys():
@@ -492,7 +492,7 @@ def read_tls_cert(cert):
 
     # Read the contents of the cert and return it in utf-8 encoded text
     with open(cert_paths[cert], 'r') as fp:
-        data = fp.read().decode('utf-8')
+        data = fp.read()
         return data
 
 
