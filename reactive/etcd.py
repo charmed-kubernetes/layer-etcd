@@ -105,8 +105,8 @@ def spam_ownership_of_tls_certs():
     # the granular decorators should help mitigate that. The end result is we
     # want to change permissions on the TLS certs before execution proceeds.
     try:
-            # I'm going to make a wild assumption that ALL the requisit TLS
-            # certs are in the basepath of the server certificate
+        # I'm going to make a wild assumption that ALL the requisit TLS
+        # certs are in the basepath of the server certificate
         opts = layer.options('tls-client')
         cert_dir = os.path.dirname(opts['server_certificate_path'])
         check_call(['chown', '-R', 'etcd:root', cert_dir])
@@ -189,6 +189,7 @@ def send_cluster_connection_details(cluster, db):
     cert = leader_get('client_certificate')
     key = leader_get('client_key')
     ca = leader_get('certificate_authority')
+
     # Set the key, cert, and ca on the db relation
     db.set_client_credentials(key, cert, ca)
 
@@ -205,9 +206,9 @@ def send_cluster_connection_details(cluster, db):
 @when('etcd.ssl.placed')
 def send_single_connection_details(db):
     ''' '''
-    cert = leader_get('client_certificate')
-    key = leader_get('client_key')
-    ca = leader_get('certificate_authority')
+    cert = read_tls_cert('client.crt')
+    key = read_tls_cert('client.key')
+    ca = read_tls_cert('ca.crt')
     # Set the key and cert on the db relation
     db.set_client_credentials(key, cert, ca)
 
@@ -226,9 +227,9 @@ def send_single_connection_details(db):
 def send_cluster_details(proxy):
     ''' Attempts to send the peer cluster string to
     proxy units so they can join and act on behalf of the cluster. '''
-    cert = leader_get('client_certificate')
-    key = leader_get('client_key')
-    ca = leader_get('certificate_authority')
+    cert = read_tls_cert('client.crt')
+    key = read_tls_cert('client.key')
+    ca = read_tls_cert('ca.crt')
     proxy.set_client_credentials(key, cert, ca)
 
     # format a list of cluster participants
@@ -365,70 +366,6 @@ def initialize_new_leader():
     set_state('etcd.leader.configured')
 
 
-@when('etcd.ssl.placed')
-@when_not('leadership.is_leader')
-@when_not('client-credentials-relayed')
-def relay_client_credentials():
-    ''' Write the client cert and key to the charm directory on followers. '''
-    # offer a short circuit if we have already received broadcast
-    # credentials for the cluster
-    if leader_get('client_certificate') and leader_get('client_key'):
-        with open('client.crt', 'w+') as fp:
-            fp.write(leader_get('client_certificate'))
-        with open('client.key', 'w+') as fp:
-            fp.write(leader_get('client_key'))
-        set_state('client-credentials-relayed')
-        return
-
-
-# @when('leadership.is_leader')
-# @when('etcd.ssl.placed')
-# @when_not('client-credentials-relayed')
-# def broadcast_client_credentials():
-#     ''' As the leader, copy the client cert and key to the charm dir and set
-#     the contents as leader data.'''
-#     charm_dir = os.getenv('CHARM_DIR')
-#     client_cert(None, charm_dir)
-#     client_key(None, charm_dir)
-#     with open('client.crt') as fp:
-#         client_certificate = fp.read()
-#     with open('client.key') as fp:
-#         client_certificate_key = fp.read()
-#     leader_set({'client_certificate': client_certificate,
-#                 'client_key': client_certificate_key})
-#     set_state('client-credentials-relayed')
-
-
-# @when('tls.server.certificate available')
-# @when_not('etcd.ssl.placed')
-# def install_etcd_certificates():
-#     ''' Copy the server cert and key to /etc/ssl/etcd and set the
-#     etcd.ssl.placed state. '''
-#     etcd_ssl_path = '/etc/ssl/etcd'
-#     if not os.path.exists(etcd_ssl_path):
-#         os.makedirs(etcd_ssl_path)
-#
-#     kv = unitdata.kv()
-#     cert = kv.get('tls.server.certificate')
-#     with open('{}/server.pem'.format(etcd_ssl_path), 'w+') as f:
-#         f.write(cert)
-#     with open('{}/ca.pem'.format(etcd_ssl_path), 'w+') as f:
-#         f.write(leader_get('certificate_authority'))
-#
-#     # schenanigans - each server makes its own key, when generating
-#     # the CSR. This is why its "magically" present.
-#     keypath = 'easy-rsa/easyrsa3/pki/private/{}.key'
-#     server = os.getenv('JUJU_UNIT_NAME').replace('/', '_')
-#     if os.path.exists(keypath.format(server)):
-#         shutil.copyfile(keypath.format(server),
-#                         '{}/server-key.pem'.format(etcd_ssl_path))
-#     else:
-#         shutil.copyfile(keypath.format(unit_get('public-address')),
-#                         '{}/server-key.pem'.format(etcd_ssl_path))
-#
-#     set_state('etcd.ssl.placed')
-
-
 @when_not('etcd.pillowmints')
 def render_default_user_ssl_exports():
     ''' Add secure credentials to default user environment configs,
@@ -534,6 +471,29 @@ def format_and_mount_storage():
 
     # Finally re-establish etcd operation
     host.service_restart('etcd')
+
+
+def read_tls_cert(cert):
+    ''' Reads the contents of the layer-configured certificate path indicated
+    by cert. Returns the utf-8 decoded contents of the file '''
+    # Load the layer options for configured paths
+    opts = layer.options('tls-client')
+
+    # Retain a dict of the certificate paths
+    cert_paths = {'ca': opts['ca_certificate_path'],
+                  'server.crt': opts['server_certificate_path'],
+                  'server.key': opts['server_key_path'],
+                  'client.crt': opts['client_certificate'],
+                  'client.key': opts['client_certificate_key']}
+
+    # If requesting a cert we dont know about, raise a ValueError
+    if cert not in cert_paths.keys():
+        raise ValueError('No known certificate {}'.format(cert))
+
+    # Read the contents of the cert and return it in utf-8 encoded text
+    with open(cert_paths[cert], 'r') as fp:
+        data = fp.read().decode('utf-8')
+        return data
 
 
 def volume_is_mounted(volume):
