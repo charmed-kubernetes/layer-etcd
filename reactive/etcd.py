@@ -109,7 +109,7 @@ def spam_ownership_of_tls_certs():
         # certs are in the basepath of the server certificate
         opts = layer.options('tls-client')
         cert_dir = os.path.dirname(opts['server_certificate_path'])
-        check_call(['chown', '-R', 'etcd:root', cert_dir])
+        check_call(['chown', '-R', 'etcd:ubuntu', cert_dir])
         set_state('etcd.ssl.placed')
     except CalledProcessError:
         log('Failed to change ownership of TLS certificates.')
