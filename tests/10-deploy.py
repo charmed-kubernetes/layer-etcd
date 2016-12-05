@@ -10,6 +10,8 @@ class TestDeployment(unittest.TestCase):
     def setUpClass(cls):
         cls.d = amulet.Deployment(series='xenial')
         cls.d.add('etcd')
+        cls.d.add('easyrsa', 'cs:~containers/easyrsa')
+        cls.d.relate('easyrsa:client', 'etcd:certificates')
         cls.d.setup(timeout=1200)
         cls.d.sentry.wait_for_messages({'etcd':
                                         re.compile('Healthy*|Unhealthy*')})
@@ -52,6 +54,8 @@ class TestDeployment(unittest.TestCase):
         the etcd cluster as participating'''
 
         # The spacing here is semi-important as its a string of ENV exports
+        # also, this is hard coding for the defaults. if the defaults in
+        # layer.yaml change, this will need to change.
         certs = "ETCDCTL_KEY_FILE=/etc/ssl/etcd/server.key " \
                 " ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.crt" \
                 " ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.crt"

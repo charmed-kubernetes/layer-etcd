@@ -134,7 +134,7 @@ class EtcdCtl:
         crt_path = opts['server_certificate_path']
         key_path = opts['server_key_path']
         os.environ['ETCDCTL_CA_FILE'] = ca_path
-        os.environ['ETCDCTL_CERT_FILE'] = crt_path 
+        os.environ['ETCDCTL_CERT_FILE'] = crt_path
         os.environ['ETCDCTL_KEY_FILE'] = key_path
         return check_output(split(command)).decode('ascii')
 

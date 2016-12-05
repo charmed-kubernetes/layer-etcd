@@ -3,9 +3,12 @@ build:
 	charm build -r --no-local-layers
 
 deploy: build
-	juju deploy cs:~containers/easyrsa
 	juju deploy ${JUJU_REPOSITORY}/builds/etcd
+	juju deploy cs:~containers/easyrsa
 	juju add-relation etcd easyrsa
+
+lint:
+	flake8 reactive lib
 
 upgrade: build
 	juju upgrade-charm etcd --path=${JUJU_REPOSITORY}/builds/etcd
@@ -13,3 +16,12 @@ upgrade: build
 force: build
 	juju upgrade-charm etcd --path=${JUJU_REPOSITORY}/builds/etcd --force-units
 
+test: build
+	tox -c ${JUJU_REPOSITORY}/builds/etcd/tox.ini
+
+clean:
+	rm -rf .tox
+	rm -f .coverage
+
+clean-all: clean
+	rm -rf ${JUJU_REPOSITORY}/builds/etcd

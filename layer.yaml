@@ -5,8 +5,6 @@ includes:
   - 'layer:leadership'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
-ignore:
-  - tests
 defines:
   tls_backup_path:
     type: string
@@ -15,6 +13,8 @@ defines:
 options:
   basic:
     packages: ['rsync']
+# These options are mirrored in the test suite as hard-coded values.
+# If these cert locations change, please update the test suite accordingly
   tls-client:
     ca_certificate_path: /etc/ssl/etcd/ca.crt
     server_certificate_path: /etc/ssl/etcd/server.crt
