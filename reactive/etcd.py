@@ -186,9 +186,9 @@ def follower_config_changed():
 def send_cluster_connection_details(cluster, db):
     ''' Need to set the cluster connection string and
     the client key and certificate on the relation object. '''
-    cert = read_tls_cert('client_certificate')
-    key = read_tls_cert('client_key')
-    ca = read_tls_cert('certificate_authority')
+    cert = read_tls_cert('client.crt')
+    key = read_tls_cert('client.key')
+    ca = read_tls_cert('ca.crt')
 
     # Set the key, cert, and ca on the db relation
     db.set_client_credentials(key, cert, ca)

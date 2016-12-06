@@ -5,11 +5,6 @@ includes:
   - 'layer:leadership'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
-defines:
-  tls_backup_path:
-    type: string
-    default: /home/ubuntu/etcd-tls-backup
-    description: The absolute path to store any tls_certificate backups.
 options:
   basic:
     packages: ['rsync']
