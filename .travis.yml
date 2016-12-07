@@ -1,9 +1,14 @@
+dist: trusty
+sudo: required
 language: python
 python:
  - '3.5'
 
 install:
  - pip install tox
+ - sudo add-apt-repository -y ppa:juju/stable
+ - sudo apt-get update
+ - sudo apt-get install -y charm-tools
 
 script:
- - tox
+ - make test-convoluted
