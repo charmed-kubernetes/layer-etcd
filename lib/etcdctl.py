@@ -1,3 +1,4 @@
+from charms import layer
 from charmhelpers.core.hookenv import log
 from subprocess import CalledProcessError
 from shlex import split
@@ -128,9 +129,13 @@ class EtcdCtl:
     def run(self, command):
         ''' Wrapper to subprocess calling output. This is a convenience
         method to clean up the calls to subprocess and append TLS data'''
-        os.environ['ETCDCTL_CA_FILE'] = '/etc/ssl/etcd/ca.pem'
-        os.environ['ETCDCTL_CERT_FILE'] = '/etc/ssl/etcd/server.pem'
-        os.environ['ETCDCTL_KEY_FILE'] = '/etc/ssl/etcd/server-key.pem'
+        opts = layer.options('tls-client')
+        ca_path = opts['ca_certificate_path']
+        crt_path = opts['server_certificate_path']
+        key_path = opts['server_key_path']
+        os.environ['ETCDCTL_CA_FILE'] = ca_path
+        os.environ['ETCDCTL_CERT_FILE'] = crt_path
+        os.environ['ETCDCTL_KEY_FILE'] = key_path
         return check_output(split(command)).decode('ascii')
 
 

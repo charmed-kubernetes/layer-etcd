@@ -22,7 +22,9 @@ observation.
 We can deploy a single node easily with
 
 ```shell
+juju deploy easyrsa
 juju deploy etcd
+juju add-relation etcd easyrsa
 ```
 And add capacity with:
 
@@ -87,9 +89,9 @@ and export some environment variables to consume the client credentials.
 
 ```shell
 juju expose etcd
-export ETCDCTL_KEY_FILE=$(pwd)/clientkey.pem
-export ETCDCTL_CERT_FILE=$(pwd)/clientcert.pem
-export ETCDCTL_CA_FILE=$(pwd)/ca.pem
+export ETCDCTL_KEY_FILE=$(pwd)/client.key
+export ETCDCTL_CERT_FILE=$(pwd)/client.crt
+export ETCDCTL_CA_FILE=$(pwd)/ca.crt
 export ETCDCTL_ENDPOINT=https://{ip of etcd host}:2379
 etcdctl member list
 ```
@@ -232,15 +234,6 @@ Step 5: Scale and operate as required
 
 # Known Limitations
 
-#### Loss of PKI warning
-If you destroy the leader - identified with the `*` text next to the unit number:
-all TLS pki will be lost. No PKI migration occurs outside
-of the units requesting and registering the certificates.
-
-> Important:  Mismanaging this configuration will result in locking yourself
-> out of the cluster, and can potentially break existing deployments in very
-> strange ways relating to x509 validation of certificates, which affects both
-> servers and clients.
 
 #### TLS Defaults Warning (for trusty etcd charm users)
 Additionally, this charm breaks with no backwards compat/upgrade path at the Trusty/Xenial

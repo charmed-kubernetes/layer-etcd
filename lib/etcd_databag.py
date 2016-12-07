@@ -1,3 +1,4 @@
+from charms import layer
 from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import is_leader
@@ -20,9 +21,9 @@ class EtcdDatabag:
      'unit_name': 'etcd0',
      'port': '2380',
      'management_port': '2379',
-     'ca_certificate': '/etc/ssl/etcd/ca.pem',
-     'server_certificate': '/etc/ssl/etcd/server.pem',
-     'server_key': '/etc/ssl/etcd/server-key.pem',
+     'ca_certificate': '/etc/ssl/etcd/ca.crt',
+     'server_certificate': '/etc/ssl/etcd/server.crt',
+     'server_key': '/etc/ssl/etcd/server.key',
      'token': '8XG27B',
      'cluster_state': 'existing'}
     '''
@@ -36,10 +37,16 @@ class EtcdDatabag:
         self.private_address = unit_get('private-address')
         self.unit_name = os.getenv('JUJU_UNIT_NAME').replace('/', '')
 
-        # These are hard coded, smell for now.
-        self.ca_certificate = "/etc/ssl/etcd/ca.pem"
-        self.server_certificate = "/etc/ssl/etcd/server.pem"
-        self.server_key = "/etc/ssl/etcd/server-key.pem"
+        # Pull the TLS certificate paths from layer data
+        opts = layer.options('tls-client')
+        ca_path = opts['ca_certificate_path']
+        crt_path = opts['server_certificate_path']
+        key_path = opts['server_key_path']
+
+        self.ca_certificate = ca_path
+        self.server_certificate = crt_path
+        self.server_key = key_path
+
         # Cluster concerns
         self.token = self.cluster_token()
         self.cluster_state = 'existing'

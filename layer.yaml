@@ -1,12 +1,18 @@
 repo: https://github.com/juju-solutions/layer-etcd.git
 includes:
   - 'layer:basic'
-  - 'layer:tls'
+  - 'layer:tls-client'
   - 'layer:leadership'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
-ignore:
-  - tests
 options:
   basic:
     packages: ['rsync']
+# These options are mirrored in the test suite as hard-coded values.
+# If these cert locations change, please update the test suite accordingly
+  tls-client:
+    ca_certificate_path: /etc/ssl/etcd/ca.crt
+    server_certificate_path: /etc/ssl/etcd/server.crt
+    server_key_path: /etc/ssl/etcd/server.key
+    client_certificate_path: /etc/ssl/etcd/client.crt
+    client_key_path: /etc/ssl/etcd/client.key
