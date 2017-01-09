@@ -294,7 +294,16 @@ def register_node_with_leader(cluster):
         host.service_restart('etcd')
         time.sleep(2)
 
-    peers = etcdctl.member_list(leader_get('leader_address'))
+    try:
+        peers = etcdctl.member_list(leader_get('leader_address'))
+    except CalledProcessError:
+        log("Etcd attempted to invoke registration before service ready")
+        # This error state is transient, and does not imply the unit is broken.
+        # Erroring at this stage can be resolved, and should not effect the
+        # overall condition of unit turn-up. Return from the method and let the
+        # charm re-invoke on next run
+        return
+
     for unit in peers:
         if 'client_urls' not in peers[unit].keys():
             # we cannot register. State not attainable.
