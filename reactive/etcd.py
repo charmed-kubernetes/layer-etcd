@@ -530,6 +530,23 @@ def update_nrpe_config(unused=None):
     nrpe_setup.write()
 
 
+@when_not('nrpe-external-master.available')
+@when('nrpe-external-master.initial-config')
+def remove_nrpe_config(nagios=None):
+    remove_state('nrpe-external-master.initial-config')
+
+    # List of systemd services for which the checks will be removed
+    services = ('etcd',)
+
+    # The current nrpe-external-master interface doesn't handle a lot of logic,
+    # use the charm-helpers code for now.
+    hostname = nrpe.get_nagios_hostname()
+    nrpe_setup = nrpe.NRPE(hostname=hostname, primary=False)
+
+    for service in services:
+        nrpe_setup.remove_check(shortname=service)
+
+
 def volume_is_mounted(volume):
     ''' Takes a hardware path and returns true/false if it is mounted '''
     cmd = ['df', '-t', 'ext4']
