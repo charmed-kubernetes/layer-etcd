@@ -3,6 +3,8 @@ set -ux
 
 systmctl status etcd > etcd-systemctl-status
 journalctl -u etcd > $DEBUG_SCRIPT_DIR/etcd-journal
+
+alias etcdctl="etcdctl --cert-file /etc/ssl/etcd/client.crt --key-file /etc/ssl/etcd/client.key --ca-file /etc/ssl/etcd/ca.crt"
 etcdctl cluster-health > $DEBUG_SCRIPT_DIR/etcdctl-cluster-health
 etcdctl ls --recursive > $DEBUG_SCRIPT_DIR/etcdctl-ls
 etcdctl member list > $DEBUG_SCRIPT_DIR/etcdctl-member-list
