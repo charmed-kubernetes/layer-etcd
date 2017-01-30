@@ -1,7 +1,7 @@
 #!/bin/sh
 set -ux
 
-systemctl status etcd > etcd-systemctl-status
+systemctl status etcd > $DEBUG_SCRIPT_DIR/etcd-systemctl-status
 journalctl -u etcd > $DEBUG_SCRIPT_DIR/etcd-journal
 
 alias etcdctl="etcdctl --cert-file /etc/ssl/etcd/client.crt --key-file /etc/ssl/etcd/client.key --ca-file /etc/ssl/etcd/ca.crt"
