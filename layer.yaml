@@ -1,6 +1,7 @@
 repo: https://github.com/juju-solutions/layer-etcd.git
 includes:
   - 'layer:basic'
+  - 'layer:debug'
   - 'layer:leadership'
   - 'layer:nagios'
   - 'layer:tls-client'
