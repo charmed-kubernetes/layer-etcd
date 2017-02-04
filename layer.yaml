@@ -1,11 +1,13 @@
 repo: https://github.com/juju-solutions/layer-etcd.git
 includes:
   - 'layer:basic'
-  - 'layer:tls-client'
-  - 'layer:leadership'
   - 'layer:debug'
+  - 'layer:leadership'
+  - 'layer:nagios'
+  - 'layer:tls-client'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
+  - 'interface:nrpe-external-master'
 options:
   basic:
     packages: ['rsync']
