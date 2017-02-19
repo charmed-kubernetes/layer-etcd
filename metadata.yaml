@@ -19,6 +19,10 @@ resources:
     type: file
     filename: snapshot.tar.gz
     description: Tarball snapshot of an etcd clusters data.
+  etcd:
+    type: file
+    filename: etcd.snap
+    description: Snap package of etcd
 series:
   - xenial
 storage:
@@ -32,4 +36,3 @@ subordinate: false
 tags:
   - database
   - keystore
-  - layer

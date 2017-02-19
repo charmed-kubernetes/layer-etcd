@@ -38,10 +38,16 @@ class EtcdDatabag:
         self.unit_name = os.getenv('JUJU_UNIT_NAME').replace('/', '')
 
         # Pull the TLS certificate paths from layer data
-        opts = layer.options('tls-client')
-        ca_path = opts['ca_certificate_path']
-        crt_path = opts['server_certificate_path']
-        key_path = opts['server_key_path']
+        tls_opts = layer.options('tls-client')
+        ca_path = tls_opts['ca_certificate_path']
+        crt_path = tls_opts['server_certificate_path']
+        key_path = tls_opts['server_key_path']
+
+        # Pull the static etcd configuration from layer-data
+        etcd_opts = layer.options('etcd')
+        self.etcd_conf_dir = etcd_opts['etcd_conf_dir']
+        self.etcd_data_dir = etcd_opts['etcd_data_dir']
+        self.etcd_daemon = etcd_opts['etcd_daemon_process']
 
         self.ca_certificate = ca_path
         self.server_certificate = crt_path

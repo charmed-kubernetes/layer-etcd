@@ -1,5 +1,5 @@
 # This file is rendered by Juju, manual edits will not be persisted
-ETCD_DATA_DIR=/var/lib/etcd/default
+ETCD_DATA_DIR={{ etcd_data_dir }}/{{ unit_name }}.etcd
 ETCD_NAME={{ unit_name }}
 ETCD_ADVERTISE_CLIENT_URLS="https://{{ private_address }}:{{ port }}"
 ETCD_LISTEN_CLIENT_URLS="http://127.0.0.1:4001,https://0.0.0.0:{{ port }}"
