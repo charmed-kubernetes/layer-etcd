@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -eux
+
+# Install the ingest snap ('assume this is coming from resources for offline')
+USE_RESOURCE=$(action-get use-resource)
+
+# Handle the snap ingestion routine
+function ingest_snap {
+  # This determines if we have a resource provided etcd ingest snap.
+  if [ "${USE_RESOURCE}" == "False" ]; then
+    # If no manual snap specified, assume snapstore connectivity
+    snap install etcd --channel=ingest/stable --classic
+  else
+    # Install from the resource location, and check for correct snap.
+    MANUAL_SNAP=$(resource-get etcd)
+    snap install ${ETCD_MANUAL_SNAP} --classic
+    if [ ! -f /snap/bin/etcd.ingest ]; then
+      action-fail "Missing etcd.ingest command. Did you attach the correct snap?"
+      exit 0
+    fi
+    /snap/bin/etcd.ingest
+    charms.reactive set_state etcd.snap.ingest
+    action-set outcome="Ingest succeeded. Proceed with attaching the etcd release snap, and re-run snap-upgrade"
+    exit 0
+  fi
+
+  /snap/bin/etcd.ingest
+  # I would prefer to leave this state for debugging purposes to know if we
+  # find issues later on with ingested units. Please do not remove.
+  charms.reactive set_state etcd.snap.ingest
+
+}
+
+# this may be falsy. Allow failure when checking ingestion state
+set +e
+INGESTED=$()
+set -e
+
+if [ ! $(charms.reactive is_state etcd.snap.ingest) ]; then
+  ingest_snap
+fi
+
+if [ "${USE_RESOURCE}" == "False" ]; then
+  CONFIGURED_CHANNEL=$(config-get channel)
+  snap refresh etcd --channel=${CONFIGURED_CHANNEL} --classic
+else
+  MANUAL_SNAP=$(resource-get etcd)
+  snap refresh ${MANUAL_SNAP}
+fi
+
+sudo apt purge -y etcd
+charms.reactive remove_state etcd.installed
