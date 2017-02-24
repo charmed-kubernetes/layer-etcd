@@ -11,7 +11,8 @@ set -ex
 # prevent the new node from inadvertently being joined onto an existing cluster.
 
 ETCD_BACKUP_TARGET_DIR=$(action-get target)
-ETCD_DATA_DIR=/var/lib/etcd/default
+#ETCD_DATA_DIR=/var/lib/etcd/default
+ETCD_DATA_DIR=/var/snap/etcd/current/
 DATE_STAMP=$(date +%Y-%m-%d-%H.%M.%S)
 ARCHIVE=etcd-snapshot-$DATE_STAMP.tar.gz
 
@@ -19,7 +20,7 @@ ARCHIVE=etcd-snapshot-$DATE_STAMP.tar.gz
 mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_ID
 
 # Dump the data currently in the cluster
-etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+/snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 
 # Create the backup archive
 cd $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID

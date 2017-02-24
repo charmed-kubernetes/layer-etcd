@@ -13,7 +13,7 @@ set -ex
 DATESTAMP=$(date +%Y-%m-%d-%H.%M.%S)
 
 ARCHIVE=etcd-data-$DATESTAMP.tar.gz
-ETCD_DATA_DIR=/var/lib/etcd
+ETCD_DATA_DIR=/var/snap/etcd/current/
 ETCD_PORT=$(config-get management_port)
 PRIVATE_ADDRESS=$(unit-get private-address)
 SKIP_BACKUP=$(action-get skip-backup)
@@ -32,7 +32,7 @@ fi
 # true 99% of the time, as even new clusters installed from apt seem to initialize
 # some form of data-store
 
-if [ -d $ETCD_DATA_DIR/default ]
+if [ -d $ETCD_DATA_DIR ]
 then
   cd $ETCD_DATA_DIR
 
@@ -51,7 +51,7 @@ then
 fi
 
 juju-log "Stopping Etcd to perform the restore."
-systemctl stop etcd
+systemctl stop snap.etcd.etcd
 
 # Give systemd and etcd a couple seconds to catch up. systemctl is blocking
 # so this is likely uneccesary other than ensuring we're not racing.
