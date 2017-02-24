@@ -60,24 +60,22 @@ def check_cluster_health():
     health = etcdctl.cluster_health()
 
     # Determine if the unit is healthy or unhealthy
-    if 'healthy' in health['status']:
-        unit_health = "Healthy"
+    if 'unhealthy' in health['status']:
+        unit_health = "UnHealthy"
     else:
-        unit_health = "Unhealthy"
+        unit_health = "Healthy"
 
     # Determine units peer count, and surface 0 by default
     try:
         peers = len(etcdctl.member_list())
     except Exception:
+        unit_health = "Errored"
         peers = 0
 
-    if peers > 1:
-        subject = "peers"
-    else:
-        subject = "peer"
 
-    status_message = "{0} with {1} known {2}.".format(unit_health, peers,
-                                                      subject)
+    bp = "{0} with {1} known peer{2}"
+    status_message = bp.format(unit_health, peers, 's' if peers != 1 else '')
+
     status_set('active', status_message)
 
 
