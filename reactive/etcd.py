@@ -49,7 +49,7 @@ import time
 
 @when('etcd.installed')
 def snap_upgrade_notice():
-    status_set('blocked', 'Manual upgrade required. run-action snap-upgrade.')
+    status_set('blocked', 'Manual migration required. http://bit.ly/tbd')
 
 
 @when_any('etcd.registered', 'etcd.leader.configured')
@@ -72,7 +72,6 @@ def check_cluster_health():
         unit_health = "Errored"
         peers = 0
 
-
     bp = "{0} with {1} known peer{2}"
     status_message = bp.format(unit_health, peers, 's' if peers != 1 else '')
 
@@ -85,10 +84,7 @@ def set_app_version():
     ''' Surface the etcd application version on juju status '''
     # note - the snap doesn't place an etcd alias on disk. This shall infer
     # the version from etcdctl, as the snap distributes both in lockstep.
-    if os.path.exists('/snap/bin/etcd.etcdctl'):
-        cmd = ['/snap/bin/etcd.etcdctl', '-version']
-        version = check_output(cmd).split(b' ')[2].split(b':')[-1].strip()
-        application_version_set(version)
+    application_version_set(snap_version('etcd'))
 
 
 @when_not('certificates.available')
@@ -128,6 +124,8 @@ def leader_config_changed():
     log('Previous port: {0}'.format(previous_port))
     previous_mgmt_port = configuration.previous('management_port')
     log('Previous management port: {0}'.format(previous_mgmt_port))
+    version = snap_version()
+        
     if previous_port and previous_mgmt_port:
         bag = EtcdDatabag()
         etcdctl = EtcdCtl()
@@ -143,9 +141,7 @@ def leader_config_changed():
             # Update the member's peer_urls with the new ports.
             log(etcdctl.member_update(members[unit_name]['unit_id'], url))
         # Render just the leaders configuration with the new values.
-        conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
-        render('defaults', conf_path, bag.__dict__, owner='root',
-               group='root')
+        render_config()
         # Close the previous client port and open the new one.
         close_open_ports()
         leader_set({'leader_address':
@@ -164,9 +160,7 @@ def follower_config_changed():
     bag = EtcdDatabag()
     log('Rendering defaults file for {0}'.format(bag.unit_name))
     # Render the follower's configuration with the new values.
-    conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
-    render('defaults', conf_path, bag.__dict__, owner='root',
-           group='root')
+    render_config()
     # Close the previous client port and open the new one.
     close_open_ports()
 
@@ -287,7 +281,7 @@ def register_node_with_leader(cluster):
     if bag.cluster_unit_id:
         bag.cluster = bag.registration_peer_string
         conf_path = '{}/etcd.conf'.format(bag.etcd_conf_dir)
-        render('defaults', conf_path, bag.__dict__)
+        render_config(bag)
         time.sleep(2)
 
     try:
@@ -319,8 +313,7 @@ def register_node_with_leader(cluster):
             bag.cluster_unit_id = resp['cluster_unit_id']
             bag.cluster = resp['cluster']
 
-    conf_path = '{}/etcd.conf'.format(bag.etcd_conf_dir)
-    render('defaults',  conf_path, bag.__dict__)
+    render_config(bag)
     host.service_restart(bag.etcd_daemon)
     time.sleep(2)
 
@@ -348,10 +341,7 @@ def initialize_new_leader():
                                                       bag.management_port)
     bag.cluster = "{}={}".format(bag.unit_name, cluster_connection_string)
 
-    etcd_conf_path = '{}/etcd.conf'.format(bag.etcd_data_dir)
-    render('defaults', etcd_conf_path, bag.__dict__, owner='root',
-           group='root')
-
+    render_config(bag)
     host.service_restart(bag.etcd_daemon)
 
     # sorry, some hosts need this. The charm races with systemd and wins.
@@ -598,3 +588,38 @@ def close_open_ports():
 def install(src, tgt):
     ''' This method wraps the bash "install" command '''
     return check_call(split('install {} {}'.format(src, tgt)))
+
+
+def render_config(bag=None):
+    ''' Render the etcd configuration template for the given version '''
+    if not bag: 
+        bag = EtcdDatabag()
+
+    # probe for 2.x compatibility
+    if snap_version().startswith('2.'):
+        conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
+        render('etcd2.conf', conf_path, bag.__dict__, owner='root',
+                group='root')
+    # default to 3.x template behavior
+    else:
+        conf_path = "{}/etcd.conf.yml".format(bag.etcd_conf_dir)
+        render('etcd3.conf', conf_path, bag.__dict__, owner='root',
+                group='root')
+    # Close the previous client port and open the new one.
+
+
+def snap_version(snap='etcd'):
+    ''' This method surfaces the version from snap info '''
+    cmd = ['snap', 'info', '{}'.format(snap)]
+    try:
+        raw_output = check_output(cmd)
+        lines = raw_output.split(b'\n')
+        for line in lines:
+            if b'installed:' in line:
+                # b'installed:   2.3.8 (x7) 5MB -'
+                # Strip and massage the output
+                version = line.split(b':')[-1].split(b' ')[3].strip()
+                return str(version, 'utf-8')
+        return 'n/a'
+    except:
+        return 'n/a'
