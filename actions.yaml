@@ -10,7 +10,7 @@ snap-upgrade:
   params:
     use-resource:
       type: boolean
-      default: false
+      default: False
       description: Default to using the resource (offline environments)
 snapshot:
   description: Export and compress a backup of the data in the Etcd cluster.
@@ -28,6 +28,6 @@ restore:
       description: Path on disk to save any pre-existing data.
     skip-backup:
       type: boolean
-      default: true
+      default: True
       description: |
         Dont backup any existing data, and skip directly to data restoration.
