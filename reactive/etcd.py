@@ -124,8 +124,7 @@ def leader_config_changed():
     log('Previous port: {0}'.format(previous_port))
     previous_mgmt_port = configuration.previous('management_port')
     log('Previous management port: {0}'.format(previous_mgmt_port))
-    version = snap_version()
-        
+
     if previous_port and previous_mgmt_port:
         bag = EtcdDatabag()
         etcdctl = EtcdCtl()
@@ -280,7 +279,7 @@ def register_node_with_leader(cluster):
     # Assume a hiccup during registration and attempt a retry
     if bag.cluster_unit_id:
         bag.cluster = bag.registration_peer_string
-        conf_path = '{}/etcd.conf'.format(bag.etcd_conf_dir)
+        # conf_path = '{}/etcd.conf'.format(bag.etcd_conf_dir)
         render_config(bag)
         time.sleep(2)
 
@@ -434,14 +433,23 @@ def passive_dismiss_context(cluster):
 def format_and_mount_storage():
     ''' This allows users to request persistent volumes from the cloud provider
     for the purposes of disaster recovery. '''
-
+    set_state('data.volume.attached')
     # Query juju for the information about the block storage
     device_info = storage_get()
     block = device_info['location']
     bag = EtcdDatabag()
+    bag.cluster = leader_get('cluster')
+    # the databag has behavior that keeps the path updated.
+    # Reference the default path from layer_options.
+    etcd_opts = layer.options('etcd')
+    # Split the tail of the path to mount the volume 1 level before
+    # the data directory.
+    tail = os.path.split(bag.etcd_data_dir)[0]
+
     if volume_is_mounted(block):
         hookenv.log('Device is already attached to the system.')
         hookenv.log('Refusing to take action against {}'.format(block))
+        return
 
     # Format the device in non-interactive mode
     cmd = ['mkfs.ext4', device_info['location'], '-F']
@@ -449,21 +457,24 @@ def format_and_mount_storage():
     hookenv.log('With command: {}'.format(' '.join(cmd)))
     check_call(cmd)
 
-    # Only attempt migration if directory exists
-    if os.path.isdir(bag.etcd_data_dir):
-        hookenv.log('Detected existing data, migrating to new location.')
-        # Migrate any existing data
-        os.makedirs('/mnt/etcd-migrate', exist_ok=True)
-        mount_volume(block, '/mnt/etcd-migrate')
-
-        cmd = ['rsync', '-azp', bag.etcd_data_dir, '/mnt/etcd-migrate/']
-        hookenv.log('With command: {}'.format(' '.join(cmd)))
-        check_call(cmd)
-
-        unmount_path('/mnt/etcd-migrate')
-
     # halt etcd to perform the data-store migration
     host.service_stop(bag.etcd_daemon)
+
+    os.makedirs(tail, exist_ok=True)
+    mount_volume(block, tail)
+    # handle first run during early-attach storage, pre-config-changed hook.
+    os.makedirs(bag.etcd_data_dir, exist_ok=True)
+
+    # Only attempt migration if directory exists
+    if os.path.isdir(etcd_opts['etcd_data_dir']):
+        migrate_path = "{}/".format(etcd_opts['etcd_data_dir'])
+        output_path = "{}/".format(bag.etcd_data_dir)
+        cmd = ['rsync', '-azp', migrate_path, output_path]
+
+        hookenv.log('Detected existing data, migrating to new location.')
+        hookenv.log('With command: {}'.format(' '.join(cmd)))
+
+        check_call(cmd)
 
     with open('/etc/fstab', 'r') as fp:
         contents = fp.readlines()
@@ -476,15 +487,12 @@ def format_and_mount_storage():
 
     # if device not in fstab, append so it persists through reboots
     if not found > 0:
-        append = "{0} {1} ext4 defaults 0 0".format(block, bag.etcd_data_dir)
+        append = "{0} {1} ext4 defaults 0 0".format(block, tail)  # noqa
         with open('/etc/fstab', 'a') as fp:
             fp.writelines([append])
 
-    mount_volume(block, bag.etcd_data_dir)
-    # handle first run during early-attach storage, pre-config-changed hook.
-    os.makedirs(bag.etcd_data_dir, exist_ok=True)
-
-    # Finally re-establish etcd operation
+    # Finally re-render the configuration and resume operation
+    render_config(bag)
     host.service_restart(bag.etcd_daemon)
 
 
@@ -592,19 +600,19 @@ def install(src, tgt):
 
 def render_config(bag=None):
     ''' Render the etcd configuration template for the given version '''
-    if not bag: 
+    if not bag:
         bag = EtcdDatabag()
 
     # probe for 2.x compatibility
     if snap_version().startswith('2.'):
         conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
         render('etcd2.conf', conf_path, bag.__dict__, owner='root',
-                group='root')
+               group='root')
     # default to 3.x template behavior
     else:
         conf_path = "{}/etcd.conf.yml".format(bag.etcd_conf_dir)
         render('etcd3.conf', conf_path, bag.__dict__, owner='root',
-                group='root')
+               group='root')
     # Close the previous client port and open the new one.
 
 
