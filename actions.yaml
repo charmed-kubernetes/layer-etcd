@@ -4,6 +4,14 @@ package-client-credentials:
     description: |
      Generate a tarball of the client certificates to connect to the cluster
      remotely.
+snap-upgrade:
+  description: |
+    Execute a migration from the apt package to a snap package format.
+  params:
+    use-resource:
+      type: boolean
+      default: False
+      description: Default to using the resource (offline environments)
 snapshot:
   description: Export and compress a backup of the data in the Etcd cluster.
   params:
@@ -20,6 +28,6 @@ restore:
       description: Path on disk to save any pre-existing data.
     skip-backup:
       type: boolean
-      default: true
+      default: True
       description: |
         Dont backup any existing data, and skip directly to data restoration.

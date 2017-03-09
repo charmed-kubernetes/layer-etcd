@@ -2,4 +2,4 @@
 
 # This runs with the assumption that the code is being executed from $CHARM_DIR
 # and is also working around a stray issue where actions aren't loading $LIB
-PYTHONPATH=$PYTHONPATH:$CHARM_DIR/lib actions/restore.py
+PYTHONPATH=$PYTHONPATH:$CHARM_DIR/lib actions/snap-upgrade.py

@@ -65,9 +65,10 @@ will report healthy nodes vs unhealthy nodes.
 For example:
 
 ```shell
-ID      WORKLOAD-STATUS JUJU-STATUS VERSION   MACHINE PORTS             PUBLIC-ADDRESS MESSAGE
-etcd/9  active          idle        2.0-beta6 10      2379/tcp,2380/tcp 192.168.239.20 cluster-health check failed... needs attention
-etcd/10 active          idle        2.0-beta6 9       2379/tcp,2380/tcp 192.168.91.60  (leader) cluster is healthy
+Unit        Workload  Agent  Machine  Public address  Ports     Message
+etcd/0*     active    idle   1        54.227.0.225    2379/tcp  Healthy with 3 known peers
+etcd/1      active    idle   2        184.72.191.212  2379/tcp  Healthy with 3 known peers
+etcd/2      active    idle   3        34.207.195.139  2379/tcp  Healthy with 3 known peers
 ```
 
 # TLS
@@ -106,7 +107,7 @@ Juju abstracts this with the [storage provider](https://jujucharms.com/docs/stab
 
 
 To add a unit of storage we'll first need to discover what storage types the
-cloud provides to us, which can be discerned with:
+cloud provides to us, which can be listed:
 ```
 juju list-storage-pools
 ```
@@ -232,6 +233,27 @@ juju run-action new-etcd/0 restore
 Step 5: Scale and operate as required
 
 
+# Limited egress operations
+
+The etcd charm installs etcd as a snap package. You can supply an etcd.snap
+resource to make this charm easily installable behind a firewall.
+
+```
+juju deploy /path/to/etcd
+juju attach etcd etcd=/path/to/etcd.snap
+```
+
+### Post Deployment Snap Upgrades (if using the resource)
+
+The charm if installed from a locally supplied resource will be locked into
+that resource version until another is supplied and explicitly installed.
+
+```
+juju attach etcd etcd=/path/to/new/etcd.snap
+juju run-action etcd/0 install
+juju run-action etcd/1 install
+```
+
 # Known Limitations
 
 
@@ -247,6 +269,8 @@ due to the nature of how replicas work in Etcd.
 
 Any issues with the above process should be filed against the charm layer in github.
 
+
+
 #### Restoring from snapshot on a scaled cluster
 
 Restoring from a snapshot on a scaled cluster will result in a broken cluster.
@@ -259,3 +283,5 @@ follow the migration instructions above in the restore action description.
 
 - Charles Butler &lt;[charles.butler@canonical.com](mailto:charles.butler@canonical.com)&gt;
 - Mathew Bruzek  &lt;[mathew.bruzek@canonical.com](mailto:mathew.bruzek@canonical.com)&gt;
+
+

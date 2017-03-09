@@ -5,17 +5,32 @@ includes:
   - 'layer:leadership'
   - 'layer:nagios'
   - 'layer:tls-client'
+  - 'layer:leadership'
+  - 'layer:snap'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
   - 'interface:nrpe-external-master'
+defines:
+  etcd_conf_dir:
+    description: Path to render etcd configuration
+    type: string
+    default: /var/snap/etcd/common
+  etcd_data_dir:
+    description: Path to presume for etcd data_persistence
+    type: string
+    default: /var/snap/etcd/current
+  etcd_daemon_process:
+    description: Process to target for etcd daemon restarts
+    type: string
+    default: snap.etcd.etcd
 options:
   basic:
     packages: ['rsync']
 # These options are mirrored in the test suite as hard-coded values.
 # If these cert locations change, please update the test suite accordingly
   tls-client:
-    ca_certificate_path: /etc/ssl/etcd/ca.crt
-    server_certificate_path: /etc/ssl/etcd/server.crt
-    server_key_path: /etc/ssl/etcd/server.key
-    client_certificate_path: /etc/ssl/etcd/client.crt
-    client_key_path: /etc/ssl/etcd/client.key
+    ca_certificate_path: /var/snap/etcd/common/ca.crt
+    server_certificate_path: /var/snap/etcd/common/server.crt
+    server_key_path: /var/snap/etcd/common/server.key
+    client_certificate_path: /var/snap/etcd/common/client.crt
+    client_key_path: /var/snap/etcd/common/client.key
