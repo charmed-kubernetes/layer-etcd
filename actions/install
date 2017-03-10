@@ -1,0 +1,8 @@
+#!/bin/bash
+set -eux
+
+# Install a snap attached from the `etcd` resource.
+
+RESOURCE_PATH=$(resource-get etcd)
+snap install --dangerous $RESOURCE_PATH
+
