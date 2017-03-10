@@ -44,14 +44,18 @@ def preflight_check():
 
 def render_backup():
     ''' Backup existing data in the event of restoration on a dirty unit. '''
+    if not os.path.isdir(ETCD_DATA_DIR) and SKIP_BACKUP:
+        msg = "Backup set to True, but no data found to backup"
+        action_set({'backup.error': msg})
     if not os.path.isdir(ETCD_DATA_DIR):
         return
 
     with chdir(ETCD_DATA_DIR):
         if not SKIP_BACKUP:
             log('Backing up existing data found in {}'.format(ETCD_DATA_DIR))
-            # tar cvf $TARGET_PATH/$ARCHIVE default
             archive_path = "{}/{}".format(TARGET_PATH, ARCHIVE)
+            cmd = 'tar cvf {0} {1}'.format(archive_path, '.')
+            check_call(split(cmd))
             backup_sum = shasum_file(archive_path)
             action_set({'backup.path': archive_path,
                         'backup.sha256sum': backup_sum})
@@ -67,12 +71,18 @@ def start_etcd_forked():
     ''' Start the etcd daemon temporarily to initiate new cluster details '''
     raw = "/snap/etcd/current/bin/etcd -data-dir={0} -force-new-cluster"
     cmd = raw.format(ETCD_DATA_DIR)
-    Popen(split(cmd), stdout=PIPE, stderr=PIPE)
+    proc = Popen(split(cmd), stdout=PIPE, stderr=PIPE)
+    return proc.pid
 
 
-def pkill_etcd():
+def pkill_etcd(pid=''):
     ''' Kill the temporary forked etcd daemon '''
-    cmd = 'pkill etcd'
+    # cmd = 'pkill etcd'
+    if pid:
+        cmd = 'kill -9 {}'.format(pid)
+    else:
+        cmd = 'pkill etcd'
+
     check_call(split(cmd))
 
 
@@ -101,7 +111,7 @@ def reconfigure_client_advertise():
     cmd = "/snap/bin/etcd.etcdctl member list"
     members = check_output(split(cmd))
     member_id = members.split(b':')[0].decode('utf-8')
-    
+
     raw_update = "/snap/bin/etcd.etcdctl member update {0} http://{1}:{2}"
     update_cmd = raw_update.format(member_id, PRIVATE_ADDRESS, ETCD_PORT)
     check_call(split(update_cmd))
@@ -140,8 +150,8 @@ if __name__ == '__main__':
     stop_etcd()
     render_backup()
     unpack_resource()
-    start_etcd_forked()
+    pid = start_etcd_forked()
     probe_forked_etcd()
     reconfigure_client_advertise()
-    pkill_etcd()
+    pkill_etcd(pid)
     service_start(opts['etcd_daemon_process'])

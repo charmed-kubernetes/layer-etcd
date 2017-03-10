@@ -64,7 +64,7 @@ def create_migration_backup(backup_package=''):
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a temporary path to perform the backup, and date the contents.
         dated_path = "{0}/etcd_migration_{1}".format(tmpdir, datestring)
-        os.makedirs(dated_path, exist_ok=True)
+        os.makedirs(dated_path)
 
         # backup all the configuration data
         for p in deb_paths['config']:
@@ -112,8 +112,13 @@ def purge_deb_files():
     cmd = 'apt purge etcd'
     check_call(split(cmd))
     for f in deb_paths['config']:
-        log('Removing file {}'.format(f), 'INFO')
-        os.remove(f)
+        try:
+            log('Removing file {}'.format(f), 'INFO')
+            os.remove(f)
+        except:
+            k = 'purge.error.{}'.format(f)
+            msg = 'Failed to purge {}. Manual removal required.'.format(k)
+            action_set({k: msg})
 
 
 def has_migrated_from_deb():
