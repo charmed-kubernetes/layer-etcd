@@ -254,6 +254,52 @@ juju run-action etcd/0 install
 juju run-action etcd/1 install
 ```
 
+# Migrate from Deb to Snap
+
+Revision 24 of etcd was the last published version installing etcd from the
+debian packages. 25+ installs from the snap store (or resource). During the
+migration process, you will be notified that a classic installation exists and
+a manual migration must be run.
+
+This is your opportunity to ensure state has been captured, and to plan for
+downtime, as this migration process will stop and resume the application. This
+service disruption can cause disruption in dependent applications.
+
+### Starting the migration
+
+The deb to snap migration process has been as automated as possible. Despite
+the automatic backup mechanism during the migration process, you are still
+encouraged to run a [snapshot](#Snapshot) before executing the upgrade.
+
+Once you've completed your snapshot, you may begin the upgrade process. As this
+action has been decoupled from the normal operational hooks of the charm, you
+will need to individually upgrade each unit in series. Best practice would
+be to migrate an individual unit at a time to ensure the cluster upgrades
+appropriately without issue.
+
+```
+juju run-action etcd/0 snap-upgrade
+```
+
+Once the unit has completed upgrade, the unit's status message will return to
+its normal health check messaging.
+
+```
+Unit        Workload  Agent  Machine  Public address  Ports     Message
+etcd/0*     active    idle   1        54.89.190.93    2379/tcp  Healthy with 3 known peers
+```
+
+You can migrate from the debian locked 2.2.x to a 2.3.x or even 3.x etcd by
+configuring the snap `channel` option on the charm before executing the
+migration.  As expected, you can change the channel and update between channel
+revisions at any time during normal operation of the charm.
+
+```
+juju config etcd channel=3.0/stable
+juju run-action etcd/0 snap-upgrade
+```
+
+
 # Known Limitations
 
 
