@@ -16,7 +16,7 @@ class TestEtcdCtl:
                                      'unit_name': 'etcd0',
                                      'management_port': '1313',
                                      'leader_address': 'http://127.1.1.1:1212'})  # noqa
-            spcm.assert_called_with(['etcdctl',
+            spcm.assert_called_with(['/snap/bin/etcd.etcdctl',
                                      '-C',
                                      'http://127.1.1.1:1212',
                                      'member',
@@ -28,7 +28,7 @@ class TestEtcdCtl:
         with patch('etcdctl.check_output') as spcm:
             self.etcdctl().unregister('br1212121212')
 
-            spcm.assert_called_with(['etcdctl',
+            spcm.assert_called_with(['/snap/bin/etcd.etcdctl',
                                      'member',
                                      'remove',
                                      'br1212121212'])
