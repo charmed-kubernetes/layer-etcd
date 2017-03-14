@@ -1,8 +1,6 @@
 #!/bin/bash
 
 set -e
-PRIVATE_ADDRESS=$(unit-get private-address)
-PORT=$(unit-get port)
-OUT=$(/usr/bin/etcdctl -C http://${PRIVATE_ADDRESS}:${PORT} cluster-health)
+OUT=$(/snap/bin/etcd.etcdctl -C http://127.0.0.1:4001 cluster-health)
 
 action-set result-map.message="${OUT}"
