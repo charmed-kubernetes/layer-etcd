@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 
 from charms.layer import snap
+from charmhelpers.core import unitdata
 from charmhelpers.core.hookenv import action_get
 from charmhelpers.core.hookenv import action_set
 from charmhelpers.core.hookenv import action_fail
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
 from charms.reactive import is_state
+from charms.reactive import remove_state
+from charms.reactive import set_state
 
 # from charmhelpers.core.host import chdir
 
 from datetime import datetime
-
+from subprocess import call
 from subprocess import check_call
 from subprocess import CalledProcessError
 
@@ -108,13 +111,29 @@ def deb_to_snap_migration():
 
 
 def purge_deb_files():
+    probe_package_command = 'dpkg --list etcd'
+    return_code = call(split(probe_package_command))
+    if return_code != 0:
+        # The return code from dpkg --list when the package is
+        # non existant
+        action_set({'dpkg.list.message': 'dpkg probe return_code > 0',
+                    'skip.package.purge': 'True'})
+        return
     log('Purging deb configuration files post migration', 'INFO')
-    cmd = 'apt purge etcd'
-    check_call(split(cmd))
+    cmd = 'apt-get purge -y etcd'
+    try:
+        check_call(split(cmd))
+    except CalledProcessError as cpe:
+        action_fail({'apt.purge.message': cpe.message})
+
     for f in deb_paths['config']:
         try:
             log('Removing file {}'.format(f), 'INFO')
             os.remove(f)
+        except FileNotFoundError:
+            k = 'purge.missing.{}'.format(os.path.basename(f))
+            msg = 'Did not purge {}. File not found.'.format(f)
+            action_set({k: msg})
         except:
             k = 'purge.error.{}'.format(f)
             msg = 'Failed to purge {}. Manual removal required.'.format(k)
@@ -122,7 +141,7 @@ def purge_deb_files():
 
 
 def has_migrated_from_deb():
-    for p in snap_paths:
+    for p in snap_paths['config']:
         # helpful when debugging
         log("Scanning for file: {} {}".format(p, os.path.exists(p)), 'DEBUG')
         if not os.path.exists(p):
@@ -146,4 +165,8 @@ if __name__ == '__main__':
         deb_to_snap_migration()
     install_snap(channel, False)
     purge_deb_files()
-
+    remove_state('etcd.installed')
+    set_state('snap.installed.etcd')
+    remove_state('etcd.pillowmints')
+    unitdata.kv().flush()
+    call(['hooks/config-changed'])

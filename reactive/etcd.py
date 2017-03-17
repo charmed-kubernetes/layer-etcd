@@ -394,9 +394,9 @@ def render_default_user_ssl_exports():
              'export ETCDCTL_CERT_FILE={}\n'.format(server_crt),
              'export ETCDCTL_CA_FILE={}\n'.format(ca_path)]
 
-    with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
+    with open('/home/ubuntu/.bash_aliases', 'w') as fp:
         fp.writelines(evars)
-    with open('/root/.bash_aliases', 'w+') as fp:
+    with open('/root/.bash_aliases', 'w') as fp:
         fp.writelines(evars)
     set_state('etcd.pillowmints')
 

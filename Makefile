@@ -24,6 +24,7 @@ test-convoluted:
 clean:
 	rm -rf .tox
 	rm -f .coverage
+	rm -rf ./tmp
 
 clean-all: clean
 	rm -rf ${JUJU_REPOSITORY}/builds/etcd

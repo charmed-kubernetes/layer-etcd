@@ -258,6 +258,10 @@ juju run-action etcd/1 install
 
 # Migrate from Deb to Snap
 
+> This only applies if you are upgrading an existing etcd charm deployment. New
+> deployments will default to snap delivery. Migration will not be an issue in
+> this scenario.
+
 Revision 24 of etcd was the last published version installing etcd from the
 debian packages. 25+ installs from the snap store (or resource). During the
 migration process, you will be notified that a classic installation exists and
@@ -304,6 +308,29 @@ juju run-action etcd/0 snap-upgrade
 
 # Known Limitations
 
+#### Moving from 2.x to 3.x and beyond
+
+The etcd charm relies heavily on the snap package for etcd. In order to properly
+migrate a 2.x series etcd deployment into 3.1 and beyond you will need to follow
+a proper channel migration path. The initial deb to snap upgrade process will
+place you in a 2.3 deployment.
+
+You can migrate from 2.3 to 3.0
+
+```
+juju config etcd channel=3.0/stable
+```
+
+From the 3.0 channel you can migrate to 3.1 (current latest at time of writing)
+
+```
+juju config etcd channel=3.1/stable
+```
+
+You **MUST** perform the 2.3 => 3.0 before moving from 3.0 => 3.1  A migration
+from 2.3 => 3.1 is not supported at this time.
+
+
 
 #### TLS Defaults Warning (for trusty etcd charm users)
 Additionally, this charm breaks with no backwards compat/upgrade path at the Trusty/Xenial
@@ -331,5 +358,3 @@ follow the migration instructions above in the restore action description.
 
 - Charles Butler &lt;[charles.butler@canonical.com](mailto:charles.butler@canonical.com)&gt;
 - Mathew Bruzek  &lt;[mathew.bruzek@canonical.com](mailto:mathew.bruzek@canonical.com)&gt;
-
-
