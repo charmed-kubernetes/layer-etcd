@@ -34,8 +34,7 @@ deb_paths = {'config': ['/etc/ssl/etcd/ca.crt',
                         '/etc/ssl/etcd/server.key',
                         '/etc/ssl/etcd/client.crt',
                         '/etc/ssl/etcd/client.key',
-                        '/etc/default/etcd',
-                        '/lib/systemd/system/etcd.service'],
+                        '/etc/default/etcd'],
              'data': ['/var/lib/etcd/default']}
 
 # Snappy only cares about the config objects. Data validation will come
@@ -46,8 +45,8 @@ snap_paths = {'config': ['/var/snap/etcd/common/etcd.conf',
                          '/var/snap/etcd/common/server.key',
                          '/var/snap/etcd/common/ca.crt'],
               'client': ['/var/snap/etcd/common/client.crt',
-                         '/var/snap/etcd/common/client.key',
-                         '/var/snap/etcd/common']}
+                         '/var/snap/etcd/common/client.key'],
+              'common':  '/var/snap/etcd/common'}
 
 
 def create_migration_backup(backup_package=''):
@@ -105,13 +104,16 @@ def deb_to_snap_migration():
         try:
             cmd = '/snap/bin/etcd.ingest'
             check_call(split(cmd))
-            for key_path in snap_paths['client']:
-                chown = 'chmod 644 {}'.format(key_path)
-                call(chown)
         except CalledProcessError as cpe:
             log('Error encountered during ingest.', 'ERROR')
             log('Error message: {}'.format(cpe.message))
             action_fail('Migration failed')
+
+        for key_path in snap_paths['client']:
+            chmod = "chmod 644 {}".format(key_path)
+            call(split(chmod))
+        cmod = "chmod 755 {}".format(snap_paths['common'])
+        call(split(cmod))
 
 
 def purge_deb_files():
