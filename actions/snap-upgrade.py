@@ -44,9 +44,10 @@ deb_paths = {'config': ['/etc/ssl/etcd/ca.crt',
 snap_paths = {'config': ['/var/snap/etcd/common/etcd.conf',
                          '/var/snap/etcd/common/server.crt',
                          '/var/snap/etcd/common/server.key',
-                         '/var/snap/etcd/common/ca.crt',
-                         '/var/snap/etcd/common/client.crt',
-                         '/var/snap/etcd/common/client.key']}
+                         '/var/snap/etcd/common/ca.crt'],
+              'client': ['/var/snap/etcd/common/client.crt',
+                         '/var/snap/etcd/common/client.key',
+                         '/var/snap/etcd/common']}
 
 
 def create_migration_backup(backup_package=''):
@@ -104,6 +105,9 @@ def deb_to_snap_migration():
         try:
             cmd = '/snap/bin/etcd.ingest'
             check_call(split(cmd))
+            for key_path in snap_paths['client']:
+                chown = 'chmod 644 {}'.format(key_path)
+                call(chown)
         except CalledProcessError as cpe:
             log('Error encountered during ingest.', 'ERROR')
             log('Error message: {}'.format(cpe.message))
