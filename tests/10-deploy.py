@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import amulet
 import unittest
@@ -26,8 +26,9 @@ class TestDeployment(unittest.TestCase):
 
     def test_leader_status(self):
         ''' Verify our leader is running the etcd daemon '''
-        status = self.leader.run('service etcd status')
-        self.assertTrue("running" in status[0])
+        status = self.leader.run('systemctl is-active snap.etcd.etcd')
+        self.assertFalse("inactive" in status[0])
+        self.assertTrue("active" in status[0])
 
     def test_node_scale(self):
         ''' Scale beyond 1 node because etcd supports peering as a standalone
@@ -38,15 +39,22 @@ class TestDeployment(unittest.TestCase):
             self.d.sentry.wait()
 
         for unit in self.etcd:
-            status = unit.run('service etcd status')
+            status = unit.run('systemctl is-active snap.etcd.etcd')
             self.assertFalse(status[1] == 1)
-            self.assertTrue("running" in status[0])
+            self.assertFalse("inactive" in status[0])
+            self.assertTrue("active" in status[0])
 
     def test_cluster_health(self):
         ''' Iterate all the units and verify we have a clean bill of health
         from etcd '''
+
+        certs = "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key " \
+                "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt " \
+                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt"
+
         for unit in self.etcd:
-            health = unit.run('etcdctl cluster-health')
+            cmd = '{} /snap/bin/etcdctl cluster-health'.format(certs)
+            health = unit.run(cmd)
             self.assertTrue('unhealthy' not in health)
             self.assertTrue('unavailable' not in health)
 
@@ -57,12 +65,13 @@ class TestDeployment(unittest.TestCase):
         # The spacing here is semi-important as its a string of ENV exports
         # also, this is hard coding for the defaults. if the defaults in
         # layer.yaml change, this will need to change.
-        certs = "ETCDCTL_KEY_FILE=/etc/ssl/etcd/server.key " \
-                " ETCDCTL_CERT_FILE=/etc/ssl/etcd/server.crt" \
-                " ETCDCTL_CA_FILE=/etc/ssl/etcd/ca.crt"
+        certs = "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key " \
+                "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt " \
+                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt"
 
         # format the command, and execute on the leader
-        out = self.leader.run('{} etcdctl member list'.format(certs))[0]
+        cmd = '{} etcdctl member list'.format(certs)
+        out = self.leader.run(cmd)[0]
         # turn the output into a list so we can iterate
         members = out.split('\n')
         for item in members:
