@@ -1,0 +1,11 @@
+series: xenial
+applications:
+  easyrsa:
+    charm: cs:~containers/easyrsa
+    num_units: 1
+  etcd:
+    charm: cs:etcd-24
+    num_units: 1
+relations:
+  - - "etcd:certificates"
+    - "easyrsa:client"
