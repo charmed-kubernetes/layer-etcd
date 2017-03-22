@@ -2,10 +2,11 @@
 
 from charms import layer
 
+from charms.layer import snap
+
 from charms.reactive import when
 from charms.reactive import when_any
 from charms.reactive import when_not
-from charms.reactive import is_state
 from charms.reactive import set_state
 from charms.reactive import remove_state
 from charms.reactive import hook
@@ -23,8 +24,6 @@ from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import close_port
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
-from charmhelpers.fetch import apt_update
-from charmhelpers.fetch import apt_install
 from charmhelpers.contrib.charmsupport import nrpe
 
 from etcdctl import EtcdCtl
@@ -38,44 +37,54 @@ from subprocess import CalledProcessError
 
 import os
 import charms.leadership  # noqa
-import shutil
 import socket
 import time
 
 
+# Layer Note:   the @when_not etcd.installed state checks are relating to
+# a boundry that was superimposed by the etcd-24 release which added support
+# for snaps. Snapped etcd is now the only supported mechanism by this charm.
+# References to this state will be wiped sometime within the next 10 releases
+# of the charm.
+
+@when('etcd.installed')
+def snap_upgrade_notice():
+    status_set('blocked', 'Manual migration required. http://bit.ly/tbd')
+
+
 @when_any('etcd.registered', 'etcd.leader.configured')
+@when_not('etcd.installed')
 def check_cluster_health():
     ''' report on the cluster health every 5 minutes'''
     etcdctl = EtcdCtl()
     health = etcdctl.cluster_health()
 
     # Determine if the unit is healthy or unhealthy
-    if 'healthy' in health['status']:
-        unit_health = "Healthy"
+    if 'unhealthy' in health['status']:
+        unit_health = "UnHealthy"
     else:
-        unit_health = "Unhealthy"
+        unit_health = "Healthy"
 
     # Determine units peer count, and surface 0 by default
     try:
         peers = len(etcdctl.member_list())
     except Exception:
+        unit_health = "Errored"
         peers = 0
 
-    status_message = "{0} with {1} known peers.".format(unit_health, peers)
+    bp = "{0} with {1} known peer{2}"
+    status_message = bp.format(unit_health, peers, 's' if peers != 1 else '')
+
     status_set('active', status_message)
 
 
-@when('etcd.installed')
+@when('snap.installed.etcd')
+@when_not('etcd.installed')
 def set_app_version():
     ''' Surface the etcd application version on juju status '''
-    # Format of version output at the time of writing
-    # etcd Version: 2.2.5
-    # Git SHA: Not provided (use ./build instead of go build)
-    # Go Version: go1.6rc2
-    # Go OS/Arch: linux/amd64
-    cmd = ['etcd', '-version']
-    version = check_output(cmd).split(b'\n')[0].split(b':')[-1].lstrip()
-    application_version_set(version)
+    # note - the snap doesn't place an etcd alias on disk. This shall infer
+    # the version from etcdctl, as the snap distributes both in lockstep.
+    application_version_set(snap_version('etcd'))
 
 
 @when_not('certificates.available')
@@ -96,41 +105,16 @@ def prepare_tls_certificates(tls):
     tls.request_server_cert(common_name, sans, certificate_name)
 
 
-@when('tls_client.ca.saved', 'tls_client.server.key.saved',
-      'tls_client.server.certificate.saved',
-      'tls_client.client.certificate.saved')
-@when_not('etcd.ssl.placed')
-def spam_ownership_of_tls_certs():
-    ''' Spam ownership of the TLS certificates until it sticks.'''
-    # We could potentially encounter this method while we're still saving keys.
-    # the granular decorators should help mitigate that. The end result is we
-    # want to change permissions on the TLS certs before execution proceeds.
-    try:
-        # I'm going to make a wild assumption that ALL the requisit TLS
-        # certs are in the basepath of the server certificate
-        opts = layer.options('tls-client')
-        cert_dir = os.path.dirname(opts['server_certificate_path'])
-        check_call(['chown', '-R', 'etcd:ubuntu', cert_dir])
-        set_state('etcd.ssl.placed')
-    except CalledProcessError:
-        log('Failed to change ownership of TLS certificates.')
-
-
 @hook('upgrade-charm')
 def remove_states():
-    # upgrade-charm issues when we rev resources and the charm. Assume an upset
-    remove_state('etcd.installed')
-    # TODO: The below
-    # I want a condition to actually physically check for new certificates.
-    # I think on charm upgrade this is appropriate. There might be additional
-    # use cases I'm not thinking of here, so please be liberal with changes.
-    remove_state('etcd.ssl.placed')
+    # stale state cleanup (pre rev6)
     remove_state('etcd.tls.secured')
 
 
-@when('etcd.installed')
+@when('snap.installed.etcd')
 @when('leadership.is_leader')
 @when_any('config.changed.port', 'config.changed.management_port')
+@when_not('etcd.installed')
 def leader_config_changed():
     ''' The leader executes the runtime configuration update for the cluster,
     as it is the controlling unit. Will render config, close and open ports and
@@ -140,6 +124,7 @@ def leader_config_changed():
     log('Previous port: {0}'.format(previous_port))
     previous_mgmt_port = configuration.previous('management_port')
     log('Previous management port: {0}'.format(previous_mgmt_port))
+
     if previous_port and previous_mgmt_port:
         bag = EtcdDatabag()
         etcdctl = EtcdCtl()
@@ -155,30 +140,28 @@ def leader_config_changed():
             # Update the member's peer_urls with the new ports.
             log(etcdctl.member_update(members[unit_name]['unit_id'], url))
         # Render just the leaders configuration with the new values.
-        render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
-               group='root')
+        render_config()
         # Close the previous client port and open the new one.
         close_open_ports()
         leader_set({'leader_address':
                    get_connection_string([bag.private_address],
                                          bag.management_port)})
-        host.service_restart('etcd')
+        host.service_restart(bag.etcd_daemon)
 
 
-@when('etcd.installed')
+@when('snap.installed.etcd')
 @when_not('leadership.is_leader')
 @when_any('config.changed.port', 'config.changed.management_port')
+@when_not('etcd.installed')
 def follower_config_changed():
     ''' Follower units need to render the configuration file, close and open
     ports, and restart the etcd service. '''
     bag = EtcdDatabag()
     log('Rendering defaults file for {0}'.format(bag.unit_name))
     # Render the follower's configuration with the new values.
-    render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
-           group='root')
+    render_config()
     # Close the previous client port and open the new one.
     close_open_ports()
-    host.service_restart('etcd')
 
 
 @when('db.connected')
@@ -226,8 +209,8 @@ def send_single_connection_details(db):
 @when('etcd.ssl.placed')
 @when_any('etcd.leader.configured', 'cluster.joined')
 def send_cluster_details(proxy):
-    ''' Attempts to send the peer cluster string to
-    proxy units so they can join and act on behalf of the cluster. '''
+    ''' Sends the peer cluster string to proxy units so they can join and act
+    on behalf of the cluster. '''
     cert = read_tls_cert('client.crt')
     key = read_tls_cert('client.key')
     ca = read_tls_cert('ca.crt')
@@ -248,33 +231,38 @@ def send_cluster_details(proxy):
     proxy.set_cluster_string(','.join(cluster))
 
 
+@when('config.changed.channel')
 @when_not('etcd.installed')
+def snap_install():
+    channel = hookenv.config('channel')
+    snap.install('etcd', channel=channel, classic=True)
+
+
+@when('etcd.ssl.placed')
+@when_not('snap.installed.etcd')
 def install_etcd():
     ''' Attempt resource get on the "etcd" and "etcdctl" resources. If no
     resources are provided attempt to install from the archive only on the
     16.04 (xenial) series. '''
 
-    status_set('maintenance', 'Installing etcd from apt.')
-    pkg_list = ['etcd']
-    apt_update()
-    apt_install(pkg_list, fatal=True)
-    # Stop the service and remove the defaults
-    # I hate that I have to do this. Sorry short-lived local data #RIP
-    # State control is to prevent upgrade-charm from nuking cluster
-    # data.
-    if not is_state('etcd.package.adjusted'):
-        host.service('stop', 'etcd')
-        if os.path.exists('/var/lib/etcd/default'):
-            shutil.rmtree('/var/lib/etcd/default')
-        set_state('etcd.package.adjusted')
-    set_state('etcd.installed')
+    if charms.reactive.is_state('etcd.installed'):
+        msg = 'Manual upgrade required. run-action snap-upgrade.'
+        status_set('blocked', msg)
+        return
+
+    status_set('maintenance', 'Installing etcd.')
+
+    channel = hookenv.config('channel')
+    # Grab the snap channel from config
+    snap.install('etcd', channel=channel, classic=True)
 
 
-@when('etcd.installed')
+@when('snap.installed.etcd')
 @when('etcd.ssl.placed')
 @when('cluster.joined')
 @when_not('leadership.is_leader')
 @when_not('etcd.registered')
+@when_not('etcd.installed')
 def register_node_with_leader(cluster):
     '''
     Control flow mechanism to perform self registration with the leader.
@@ -291,8 +279,8 @@ def register_node_with_leader(cluster):
     # Assume a hiccup during registration and attempt a retry
     if bag.cluster_unit_id:
         bag.cluster = bag.registration_peer_string
-        render('defaults', '/etc/default/etcd', bag.__dict__)
-        host.service_restart('etcd')
+        # conf_path = '{}/etcd.conf'.format(bag.etcd_conf_dir)
+        render_config(bag)
         time.sleep(2)
 
     try:
@@ -324,8 +312,8 @@ def register_node_with_leader(cluster):
             bag.cluster_unit_id = resp['cluster_unit_id']
             bag.cluster = resp['cluster']
 
-    render('defaults', '/etc/default/etcd', bag.__dict__)
-    host.service_restart('etcd')
+    render_config(bag)
+    host.service_restart(bag.etcd_daemon)
     time.sleep(2)
 
     # Check health status before we say we are good
@@ -338,10 +326,10 @@ def register_node_with_leader(cluster):
     set_state('etcd.registered')
 
 
-@when('etcd.installed')
 @when('etcd.ssl.placed')
 @when('leadership.is_leader')
 @when_not('etcd.leader.configured')
+@when_not('etcd.installed')
 def initialize_new_leader():
     ''' Create an initial cluster string to bring up a single member cluster of
     etcd, and set the leadership data so the followers can join this one. '''
@@ -351,9 +339,9 @@ def initialize_new_leader():
     cluster_connection_string = get_connection_string([bag.private_address],
                                                       bag.management_port)
     bag.cluster = "{}={}".format(bag.unit_name, cluster_connection_string)
-    render('defaults', '/etc/default/etcd', bag.__dict__, owner='root',
-           group='root')
-    host.service_restart('etcd')
+
+    render_config(bag)
+    host.service_restart(bag.etcd_daemon)
 
     # sorry, some hosts need this. The charm races with systemd and wins.
     time.sleep(2)
@@ -376,6 +364,22 @@ def initialize_new_leader():
     set_state('etcd.leader.configured')
 
 
+@when('tls_client.ca.saved', 'tls_client.server.key.saved',
+      'tls_client.server.certificate.saved',
+      'tls_client.client.certificate.saved')
+@when_not('etcd.ssl.placed', 'etcd.installed')
+def tls_state_control():
+    ''' This state represents all the complexity of handling the TLS certs.
+        instead of stacking decorators, this state condenses it into a single
+        state we can gate on before progressing with secure setup. Also handles
+        ensuring users of the system can access the TLS certificates'''
+
+    bag = EtcdDatabag()
+    cmd = ['chown', '-R', 'root:ubuntu', bag.etcd_conf_dir]
+    check_call(cmd)
+    set_state('etcd.ssl.placed')
+
+
 @when_not('etcd.pillowmints')
 def render_default_user_ssl_exports():
     ''' Add secure credentials to default user environment configs,
@@ -383,16 +387,16 @@ def render_default_user_ssl_exports():
     opts = layer.options('tls-client')
 
     ca_path = opts['ca_certificate_path']
-    server_crt = opts['server_certificate_path']
-    server_key = opts['server_key_path']
+    client_crt = opts['client_certificate_path']
+    client_key = opts['client_key_path']
 
-    evars = ['export ETCDCTL_KEY_FILE={}\n'.format(server_key),
-             'export ETCDCTL_CERT_FILE={}\n'.format(server_crt),
+    evars = ['export ETCDCTL_KEY_FILE={}\n'.format(client_key),
+             'export ETCDCTL_CERT_FILE={}\n'.format(client_crt),
              'export ETCDCTL_CA_FILE={}\n'.format(ca_path)]
 
-    with open('/home/ubuntu/.bash_aliases', 'w+') as fp:
+    with open('/home/ubuntu/.bash_aliases', 'w') as fp:
         fp.writelines(evars)
-    with open('/root/.bash_aliases', 'w+') as fp:
+    with open('/root/.bash_aliases', 'w') as fp:
         fp.writelines(evars)
     set_state('etcd.pillowmints')
 
@@ -429,14 +433,23 @@ def passive_dismiss_context(cluster):
 def format_and_mount_storage():
     ''' This allows users to request persistent volumes from the cloud provider
     for the purposes of disaster recovery. '''
-
+    set_state('data.volume.attached')
     # Query juju for the information about the block storage
     device_info = storage_get()
     block = device_info['location']
+    bag = EtcdDatabag()
+    bag.cluster = leader_get('cluster')
+    # the databag has behavior that keeps the path updated.
+    # Reference the default path from layer_options.
+    etcd_opts = layer.options('etcd')
+    # Split the tail of the path to mount the volume 1 level before
+    # the data directory.
+    tail = os.path.split(bag.etcd_data_dir)[0]
 
     if volume_is_mounted(block):
         hookenv.log('Device is already attached to the system.')
         hookenv.log('Refusing to take action against {}'.format(block))
+        return
 
     # Format the device in non-interactive mode
     cmd = ['mkfs.ext4', device_info['location'], '-F']
@@ -444,21 +457,24 @@ def format_and_mount_storage():
     hookenv.log('With command: {}'.format(' '.join(cmd)))
     check_call(cmd)
 
-    # Only attempt migration if directory exists
-    if os.path.isdir('/var/lib/etcd/default'):
-        hookenv.log('Detected existing data, migrating to new location.')
-        # Migrate any existing data
-        os.makedirs('/mnt/etcd-migrate', exist_ok=True)
-        mount_volume(block, '/mnt/etcd-migrate')
-
-        cmd = ['rsync', '-azp', '/var/lib/etcd/default', '/mnt/etcd-migrate/']
-        hookenv.log('With command: {}'.format(' '.join(cmd)))
-        check_call(cmd)
-
-        unmount_path('/mnt/etcd-migrate')
-
     # halt etcd to perform the data-store migration
-    host.service_stop('etcd')
+    host.service_stop(bag.etcd_daemon)
+
+    os.makedirs(tail, exist_ok=True)
+    mount_volume(block, tail)
+    # handle first run during early-attach storage, pre-config-changed hook.
+    os.makedirs(bag.etcd_data_dir, exist_ok=True)
+
+    # Only attempt migration if directory exists
+    if os.path.isdir(etcd_opts['etcd_data_dir']):
+        migrate_path = "{}/".format(etcd_opts['etcd_data_dir'])
+        output_path = "{}/".format(bag.etcd_data_dir)
+        cmd = ['rsync', '-azp', migrate_path, output_path]
+
+        hookenv.log('Detected existing data, migrating to new location.')
+        hookenv.log('With command: {}'.format(' '.join(cmd)))
+
+        check_call(cmd)
 
     with open('/etc/fstab', 'r') as fp:
         contents = fp.readlines()
@@ -471,16 +487,13 @@ def format_and_mount_storage():
 
     # if device not in fstab, append so it persists through reboots
     if not found > 0:
-        append = "{} /var/lib/etcd ext4 defaults 0 0".format(block)
+        append = "{0} {1} ext4 defaults 0 0".format(block, tail)  # noqa
         with open('/etc/fstab', 'a') as fp:
             fp.writelines([append])
 
-    mount_volume(block, '/var/lib/etcd')
-    # handle first run during early-attach storage, pre-config-changed hook.
-    os.makedirs('/var/lib/etcd/default', exist_ok=True)
-
-    # Finally re-establish etcd operation
-    host.service_restart('etcd')
+    # Finally re-render the configuration and resume operation
+    render_config(bag)
+    host.service_restart(bag.etcd_daemon)
 
 
 def read_tls_cert(cert):
@@ -583,3 +596,38 @@ def close_open_ports():
 def install(src, tgt):
     ''' This method wraps the bash "install" command '''
     return check_call(split('install {} {}'.format(src, tgt)))
+
+
+def render_config(bag=None):
+    ''' Render the etcd configuration template for the given version '''
+    if not bag:
+        bag = EtcdDatabag()
+
+    # probe for 2.x compatibility
+    if snap_version().startswith('2.'):
+        conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
+        render('etcd2.conf', conf_path, bag.__dict__, owner='root',
+               group='root')
+    # default to 3.x template behavior
+    else:
+        conf_path = "{}/etcd.conf.yml".format(bag.etcd_conf_dir)
+        render('etcd3.conf', conf_path, bag.__dict__, owner='root',
+               group='root')
+    # Close the previous client port and open the new one.
+
+
+def snap_version(snap='etcd'):
+    ''' This method surfaces the version from snap info '''
+    cmd = ['snap', 'info', '{}'.format(snap)]
+    try:
+        raw_output = check_output(cmd)
+        lines = raw_output.split(b'\n')
+        for line in lines:
+            if b'installed:' in line:
+                # b'installed:   2.3.8 (x7) 5MB -'
+                # Strip and massage the output
+                version = line.split(b':')[-1].split(b' ')[3].strip()
+                return str(version, 'utf-8')
+        return 'n/a'
+    except:
+        return 'n/a'

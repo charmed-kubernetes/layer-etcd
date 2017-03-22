@@ -11,6 +11,7 @@ class TestDeployment(unittest.TestCase):
         cls.d = amulet.Deployment(series='xenial')
         cls.d.add('etcd')
         cls.d.add('easyrsa', 'cs:~containers/easyrsa')
+        cls.d.configure('etcd', {'channel': '3.0/stable'})
         cls.d.relate('easyrsa:client', 'etcd:certificates')
         cls.d.setup(timeout=1200)
         cls.d.sentry.wait_for_messages({'etcd':

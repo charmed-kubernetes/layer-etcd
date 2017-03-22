@@ -1,10 +1,11 @@
 #!/bin/sh
 set -ux
 
-systemctl status etcd > $DEBUG_SCRIPT_DIR/etcd-systemctl-status
-journalctl -u etcd > $DEBUG_SCRIPT_DIR/etcd-journal
+# TODO: Link these explicit system calls against the layer.yaml configuration
+systemctl status snap.etcd.etcd > $DEBUG_SCRIPT_DIR/etcd-systemctl-status
+journalctl -u snap.etcd.etcd > $DEBUG_SCRIPT_DIR/etcd-journal
 
-alias etcdctl="etcdctl --cert-file /etc/ssl/etcd/client.crt --key-file /etc/ssl/etcd/client.key --ca-file /etc/ssl/etcd/ca.crt"
+alias etcdctl="/snap/bin/etcd.etcdctl --cert-file /var/snap/etcd/common/client.crt --key-file /var/snap/etcd/common/client.key --ca-file /var/snap/etcd/common/ca.crt"
 etcdctl cluster-health > $DEBUG_SCRIPT_DIR/etcdctl-cluster-health
 etcdctl ls --recursive > $DEBUG_SCRIPT_DIR/etcdctl-ls
 etcdctl member list > $DEBUG_SCRIPT_DIR/etcdctl-member-list

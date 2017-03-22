@@ -4,6 +4,7 @@ from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core import unitdata
+from charms.reactive import is_state
 
 import string
 import random
@@ -38,10 +39,18 @@ class EtcdDatabag:
         self.unit_name = os.getenv('JUJU_UNIT_NAME').replace('/', '')
 
         # Pull the TLS certificate paths from layer data
-        opts = layer.options('tls-client')
-        ca_path = opts['ca_certificate_path']
-        crt_path = opts['server_certificate_path']
-        key_path = opts['server_key_path']
+        tls_opts = layer.options('tls-client')
+        ca_path = tls_opts['ca_certificate_path']
+        crt_path = tls_opts['server_certificate_path']
+        key_path = tls_opts['server_key_path']
+
+        # Pull the static etcd configuration from layer-data
+        etcd_opts = layer.options('etcd')
+        self.etcd_conf_dir = etcd_opts['etcd_conf_dir']
+        # This getter determines the current context of the storage path
+        # depending on if durable storage is mounted.
+        self.etcd_data_dir = self.storage_path()
+        self.etcd_daemon = etcd_opts['etcd_daemon_process']
 
         self.ca_certificate = ca_path
         self.server_certificate = crt_path
@@ -55,6 +64,7 @@ class EtcdDatabag:
         self.registration_peer_string = self.db.get('registration_peer_string')
 
     def cluster_token(self):
+        ''' Getter to return the unique cluster token. '''
         if not is_leader():
             return leader_get('token')
 
@@ -74,3 +84,16 @@ class EtcdDatabag:
 
     def cache_registration_detail(self, key, val):
         self.db.set(key, val)
+
+    def storage_path(self):
+        ''' Storage mounts are limited in snap confinement. Default behavior
+        is to version the database files in $SNAP_DATA. However the user can
+        attach durable storage, which is mounted in /media. We need a common
+        method to determine which storage path we are concerned with '''
+
+        etcd_opts = layer.options('etcd')
+
+        if is_state('data.volume.attached'):
+            return "/media/etcd/data"
+        else:
+            return etcd_opts['etcd_data_dir']
