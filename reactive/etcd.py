@@ -174,6 +174,7 @@ def send_cluster_connection_details(cluster, db):
     key = read_tls_cert('client.key')
     ca = read_tls_cert('ca.crt')
     etcdctl = EtcdCtl()
+    bag = EtcdDatabag()
 
     # Set the key, cert, and ca on the db relation
     db.set_client_credentials(key, cert, ca)
@@ -181,6 +182,10 @@ def send_cluster_connection_details(cluster, db):
     port = hookenv.config().get('port')
     # Get all the peers participating in the cluster relation.
     members = cluster.get_peer_addresses()
+    # Append our own address to the membership list, because peers dont self
+    # actualize
+    members.append(bag.private_address)
+    members.sort()
     # Create a connection string with all the members on the configured port.
     connection_string = get_connection_string(members, port)
     # Set the connection string on the db relation.
@@ -189,6 +194,7 @@ def send_cluster_connection_details(cluster, db):
 
 @when('db.connected')
 @when('etcd.ssl.placed')
+@when_not('cluster.joined')
 def send_single_connection_details(db):
     ''' '''
     cert = read_tls_cert('client.crt')
