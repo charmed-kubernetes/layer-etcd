@@ -141,6 +141,18 @@ class EtcdCtl:
         os.environ['ETCDCTL_KEY_FILE'] = key_path
         return check_output(split(command)).decode('ascii')
 
+    def version(self):
+        ''' Return the version of etcdctl '''
+        version = ''
+        out = self.run('{} --version'.format(self.ETCDCTL_COMMAND))
+
+        for line in out.split('\n'):
+            if 'etcdctl' in line:
+                # Note: version 2 does not contain any : so split on version
+                # and handle etcd 3+ output accordingly.
+                version = line.split('version')[-1].replace(':', '').strip()
+        return version
+
 
 def get_connection_string(members, port, protocol='https'):
     ''' Return a connection string for the list of members using the provided

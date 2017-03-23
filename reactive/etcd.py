@@ -173,6 +173,7 @@ def send_cluster_connection_details(cluster, db):
     cert = read_tls_cert('client.crt')
     key = read_tls_cert('client.key')
     ca = read_tls_cert('ca.crt')
+    etcdctl = EtcdCtl()
 
     # Set the key, cert, and ca on the db relation
     db.set_client_credentials(key, cert, ca)
@@ -183,7 +184,7 @@ def send_cluster_connection_details(cluster, db):
     # Create a connection string with all the members on the configured port.
     connection_string = get_connection_string(members, port)
     # Set the connection string on the db relation.
-    db.set_connection_string(connection_string)
+    db.set_connection_string(connection_string, version=etcdctl.version())
 
 
 @when('db.connected')
@@ -193,6 +194,9 @@ def send_single_connection_details(db):
     cert = read_tls_cert('client.crt')
     key = read_tls_cert('client.key')
     ca = read_tls_cert('ca.crt')
+
+    etcdctl = EtcdCtl()
+
     # Set the key and cert on the db relation
     db.set_client_credentials(key, cert, ca)
 
@@ -202,7 +206,7 @@ def send_single_connection_details(db):
     # Create a connection string with this member on the configured port.
     connection_string = get_connection_string(members, bag.port)
     # Set the connection string on the db relation.
-    db.set_connection_string(connection_string)
+    db.set_connection_string(connection_string, version=etcdctl.version())
 
 
 @when('proxy.connected')
