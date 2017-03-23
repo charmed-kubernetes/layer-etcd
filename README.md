@@ -98,7 +98,7 @@ etcdctl member list
 
 # Persistent Storage
 
-Many cloud providers use ephemeral storage. When using cloud provider 
+Many cloud providers use ephemeral storage. When using cloud provider
 infrastructures is recommended to place any data-stores on persistent volumes
 that exist outside of the ephemeral storage on the unit.
 
@@ -147,6 +147,8 @@ comes with caveats and a very specific path to restore a cluster:
 
 The cluster must be in a state of only having a single member. So it's best to
 deploy a new cluster using the etcd charm, without adding any additional units.
+Snapshots are also only supported on the same etcd version with which the
+snapshot was taken.
 
 ```
 juju deploy etcd new-etcd
@@ -160,7 +162,7 @@ juju attach new-etcd snapshot=/path/to/etcd-backup
 juju run-action new-etcd/0 restore
 ```
 
-Once the restore action has completed, evaluate the cluster health. If the 
+Once the restore action has completed, evaluate the cluster health. If the
 cluster is healthy, you may resume scaling the application to meet your needs.
 
 - **param** target: destination directory to save the existing data.
@@ -194,10 +196,10 @@ Action queued with id: b46d5d6f-5625-4320-8cda-b611c6ae580c
 ```
 
 Step 2: Check the status of the action so you can verify the hash sum of the
-resulting file. The output will contain results.copy.cmd the value can be 
+resulting file. The output will contain results.copy.cmd the value can be
 copied and used to download the snapshot that you just created.
 
-Download the snapshot tar archive from the unit that created the snapshot and 
+Download the snapshot tar archive from the unit that created the snapshot and
 verify the sha256 hash sum.
 
 ```
@@ -223,7 +225,7 @@ Step 3: Deploy the new cluster leader, and attach the snapshot as a resource.
 juju deploy etcd new-etcd --resource snapshot=./etcd-snapshot-2016-11-09-02.41.47.tar.gz
 ```
 
-Step 4: Re-Initialize the etcd leader with the data by running the `restore` 
+Step 4: Re-Initialize the etcd leader with the data by running the `restore`
 action which uses the resource that was attached in step 3.
 
 ```
@@ -256,16 +258,16 @@ juju run-action etcd/1 install
 
 # Migrate from Deb to Snap
 
-> This section only applies if you are upgrading an existing etcd charm 
-> deployments. This migration should only be needed once because new 
+> This section only applies if you are upgrading an existing etcd charm
+> deployments. This migration should only be needed once because new
 > deployments of etcd will default to snap delivery.
 
-Revision 24 and prior the etcd charm installed the etcd application from Debian 
-packages. Revisions 25+ install from the snap store (or resource). 
-During the migration process, you will be notified that a classic installation 
+Revision 24 and prior the etcd charm installed the etcd application from Debian
+packages. Revisions 25+ install from the snap store (or resource).
+During the migration process, you will be notified that a classic installation
 exists and a manual migration action must be run.
 
-Before a migration is your opportunity to ensure state has been captured, and 
+Before a migration is your opportunity to ensure state has been captured, and
 to plan for downtime, as this migration process will stop and resume the etcd
 application. This service disruption can cause disruptions with other dependent
 applications.
@@ -276,7 +278,7 @@ The deb to snap migration process has been as automated as possible. Despite
 the automatic backup mechanism during the migration process, you are still
 encouraged to run a [snapshot](#Snapshot) before executing the upgrade.
 
-Once the snapshot is completed, begin the migration process. You first need to 
+Once the snapshot is completed, begin the migration process. You first need to
 upgrade the charm to revision 25 or later.
 
 ```
@@ -285,7 +287,7 @@ juju upgrade-charm etcd
 
 For your convenience there is the `snap-upgrade` action that removes the Debian
 package and installs the snap package. Each etcd unit will need to be upgraded
-individually. Best practice would be to migrate an individual unit at a time 
+individually. Best practice would be to migrate an individual unit at a time
 to ensure the cluster upgrades completely.
 
 ```
@@ -340,11 +342,11 @@ This is an incompatible break due to the nature of peer relationships, and how
 the certificates are generated/passed off.
 
 To migrate from Trusty to Xenial, the operator will be responsible for deploying
-the Xenial etcd cluster, then issuing an etcd data dump on the trusty series, 
+the Xenial etcd cluster, then issuing an etcd data dump on the trusty series,
 and importing that data into the new cluster. This can be only be performed on
 a single node due to the nature of how replicas work in etcd.
 
-Any issues with the above process should be filed against the charm layer in 
+Any issues with the above process should be filed against the charm layer in
 [github](https://github.com/juju-solutions/layer-etcd).
 
 
