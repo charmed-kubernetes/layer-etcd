@@ -81,6 +81,15 @@ class TestDeployment(unittest.TestCase):
             self.assertTrue('etcd cluster is unavailable' not in members)
         self.assertTrue(len(members) == len(self.etcd))
 
+    def test_node_scale_down_members(self):
+        ''' Scale the cluster down and ensure the cluster state is still
+        healthy '''
+        # Remove the leader
+        self.d.remove_unit(self.leader.info['unit_name'])
+        self.d.sentry.wait()
+        # re-use the cluster-health test to validate we are still healthy.
+        self.test_cluster_health()
+
 
 if __name__ == '__main__':
     unittest.main()
