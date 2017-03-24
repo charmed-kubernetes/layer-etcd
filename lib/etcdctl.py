@@ -50,16 +50,22 @@ class EtcdCtl:
                 reg['cluster'] = line.split('="')[-1].rstrip('"')
         return reg
 
-    def unregister(self, unit_id):
+    def unregister(self, unit_id, leader_address=None):
         ''' Perform self deregistration during unit teardown
 
-        @params cluster_data - a dict of data to fill out the request to push
-        our deregister command to the leader. requires  keys: leader_address,
-        port, etcd_unit_guid
+        @params unit_id - the ID for the unit assigned by etcd. Obtainable from
+        member_list method.
 
-        The unit_id can be obtained from the EtcdDatabag dict
+        @params leader_address - The endpoint to communicate with the leader in
+        the event of self deregistration.
         '''
-        command = "{0} member remove {1}".format(self.ETCDCTL_COMMAND, unit_id)
+
+        if leader_address:
+            cmd = "{0} --endpoint {1} member remove {2}"
+            command = cmd.format(self.ETCDCTL_COMMAND, leader_address, unit_id)
+        else:
+            cmd = "{0} member remove {1}"
+            command = cmd.format(self.ETCDCTL_COMMAND, unit_id)
 
         return self.run(command)
 

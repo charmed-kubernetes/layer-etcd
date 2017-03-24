@@ -411,32 +411,15 @@ def render_default_user_ssl_exports():
     set_state('etcd.pillowmints')
 
 
-@when('cluster.departing')
-@when('leadership.is_leader')
-def unregister(cluster):
-    ''' The leader will process the departing event and attempt unregistration
-        for the departing unit. If the leader is departing, it will unregister
-        all units prior to termination.
-    '''
+@hook('cluster-relation-broken')
+def perform_self_unregistration(cluster=None):
+    ''' Attempt self removal during unit teardown. '''
     etcdctl = EtcdCtl()
-    peers = cluster.get_peers()
+    leader_address = leader_get('leader_address')
+    unit_name = os.getenv('JUJU_UNIT_NAME').replace('/', '')
     members = etcdctl.member_list()
-    for unit in peers:
-        cluster_name = unit.replace('/', '')
-        if cluster_name in members.keys():
-            log("Unregistering {0}".format(unit))
-            etcdctl.unregister(members[cluster_name]['unit_id'])
-        else:
-            log("Received removal for disconnected member {}".format(unit))
-    cluster.dismiss()
-
-
-@when('cluster.departing')
-@when_not('leadership.is_leader')
-def passive_dismiss_context(cluster):
-    ''' All units undergo the departing phase. This is a no-op unless you
-        are the leader '''
-    cluster.dismiss()
+    # Self Unregistration
+    etcdctl.unregister(members[unit_name]['unit_id'], leader_address)
 
 
 @hook('data-storage-attached')
