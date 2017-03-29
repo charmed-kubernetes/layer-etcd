@@ -49,7 +49,7 @@ import time
 
 @when('etcd.installed')
 def snap_upgrade_notice():
-    status_set('blocked', 'Manual migration required. http://bit.ly/tbd')
+    status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
 
 
 @when_any('etcd.registered', 'etcd.leader.configured')
