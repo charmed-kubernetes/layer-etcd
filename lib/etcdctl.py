@@ -6,11 +6,16 @@ from subprocess import check_output
 import os
 
 
+def etcdctl_command():
+    if os.path.isfile('/snap/bin/etcd.etcdctl'):
+        return '/snap/bin/etcd.etcdctl'
+    return 'etcdctl'
+
+
 class EtcdCtl:
     ''' etcdctl modeled as a python class. This python wrapper consumes
     and exposes some of the commands contained in etcdctl. Related to unit
     registration, cluster health, and other operations '''
-    ETCDCTL_COMMAND = "/snap/bin/etcd.etcdctl"
 
     def register(self, cluster_data):
         ''' Perform self registration against the etcd leader and returns the
@@ -28,7 +33,7 @@ class EtcdCtl:
         command = "{3} -C {0} member add {1} " \
                   "{2}".format(cluster_data['leader_address'],
                                cluster_data['unit_name'],
-                               connection, self.ETCDCTL_COMMAND)
+                               connection, etcdctl_command())
 
         try:
             result = self.run(command)
@@ -62,10 +67,10 @@ class EtcdCtl:
 
         if leader_address:
             cmd = "{0} --endpoint {1} member remove {2}"
-            command = cmd.format(self.ETCDCTL_COMMAND, leader_address, unit_id)
+            command = cmd.format(etcdctl_command(), leader_address, unit_id)
         else:
             cmd = "{0} member remove {1}"
-            command = cmd.format(self.ETCDCTL_COMMAND, unit_id)
+            command = cmd.format(etcdctl_command(), unit_id)
 
         return self.run(command)
 
@@ -76,11 +81,11 @@ class EtcdCtl:
 
         members = {}
         if leader_address:
-            cmd = "{0} --endpoint {1} member list".format(self.ETCDCTL_COMMAND,
+            cmd = "{0} --endpoint {1} member list".format(etcdctl_command(),
                                                           leader_address)
             out = self.run(cmd)
         else:
-            out = self.run("{} member list".format(self.ETCDCTL_COMMAND))
+            out = self.run("{} member list".format(etcdctl_command()))
         raw_member_list = out.strip('\n').split('\n')
         # Expect output like this:
         # 4f24ee16c889f6c1: name=etcd20 peerURLs=https://10.113.96.197:2380 clientURLs=https://10.113.96.197:2379  # noqa
@@ -110,7 +115,7 @@ class EtcdCtl:
         out = ''
         try:
             cmd = '{2} member update {0} {1}'
-            command = cmd.format(unit_id, uri, self.ETCDCTCL_COMMAND)
+            command = cmd.format(unit_id, uri, etcdctl_command())
             log(command)
             # Run the member update command for the existing unit_id.
             out = self.run(command)
@@ -124,7 +129,7 @@ class EtcdCtl:
         organized by topical information with detailed unit output '''
         health = {}
         try:
-            out = self.run('{} cluster-health'.format(self.ETCDCTL_COMMAND))
+            out = self.run('{} cluster-health'.format(etcdctl_command()))
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
@@ -150,7 +155,7 @@ class EtcdCtl:
     def version(self):
         ''' Return the version of etcdctl '''
         version = ''
-        out = self.run('{} --version'.format(self.ETCDCTL_COMMAND))
+        out = self.run('{} --version'.format(etcdctl_command()))
 
         for line in out.split('\n'):
             if 'etcdctl' in line:
