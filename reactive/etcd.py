@@ -109,6 +109,7 @@ def prepare_tls_certificates(tls):
 def remove_states():
     # stale state cleanup (pre rev6)
     remove_state('etcd.tls.secured')
+
     remove_state('etcd.ssl.placed')
 
 
@@ -378,7 +379,7 @@ def initialize_new_leader():
 @when('tls_client.ca.saved', 'tls_client.server.key.saved',
       'tls_client.server.certificate.saved',
       'tls_client.client.certificate.saved')
-@when_not('etcd.ssl.placed', 'etcd.installed')
+@when_not('etcd.ssl.placed')
 def tls_state_control():
     ''' This state represents all the complexity of handling the TLS certs.
         instead of stacking decorators, this state condenses it into a single
@@ -386,6 +387,9 @@ def tls_state_control():
         ensuring users of the system can access the TLS certificates'''
 
     bag = EtcdDatabag()
+    if not os.path.isdir(bag.etcd_conf_dir):
+        hookenv.log('Waiting for etcd conf creation.')
+        return
     cmd = ['chown', '-R', 'root:ubuntu', bag.etcd_conf_dir]
     check_call(cmd)
     set_state('etcd.ssl.placed')
