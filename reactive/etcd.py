@@ -53,6 +53,7 @@ import time
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
 nrpe.Check.shortname_re = '[\.A-Za-z0-9-_]+$'
 
+
 @when('etcd.installed')
 def snap_upgrade_notice():
     status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
