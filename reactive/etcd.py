@@ -47,6 +47,13 @@ import time
 # References to this state will be wiped sometime within the next 10 releases
 # of the charm.
 
+
+# Override the default nagios shortname regex to allow periods, which we
+# need because our bin names contain them (e.g. 'snap.foo.daemon'). The
+# default regex in charmhelpers doesn't allow periods, but nagios itself does.
+nrpe.Check.shortname_re = '[\.A-Za-z0-9-_]+$'
+
+
 @when('etcd.installed')
 def snap_upgrade_notice():
     status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
@@ -530,7 +537,7 @@ def initial_nrpe_config(nagios=None):
           'config.changed.nagios_servicegroups')
 def update_nrpe_config(unused=None):
     # List of systemd services that will be checked
-    services = ('etcd',)
+    services = ('snap.etcd.etcd',)
 
     # The current nrpe-external-master interface doesn't handle a lot of logic,
     # use the charm-helpers code for now.
@@ -547,7 +554,7 @@ def remove_nrpe_config(nagios=None):
     remove_state('nrpe-external-master.initial-config')
 
     # List of systemd services for which the checks will be removed
-    services = ('etcd',)
+    services = ('snap.etcd.etcd',)
 
     # The current nrpe-external-master interface doesn't handle a lot of logic,
     # use the charm-helpers code for now.
