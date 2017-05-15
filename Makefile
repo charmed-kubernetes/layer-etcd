@@ -8,7 +8,8 @@ deploy: build
 	juju add-relation etcd easyrsa
 
 lint:
-	/usr/bin/python3 -m flake8 reactive lib
+	tox --notest
+	PATH=.tox/py34/bin:.tox/py35/bin flake8 reactive lib
 
 upgrade: build
 	juju upgrade-charm etcd --path=${JUJU_REPOSITORY}/builds/etcd
