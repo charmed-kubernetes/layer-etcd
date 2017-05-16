@@ -91,7 +91,7 @@ def set_app_version():
     ''' Surface the etcd application version on juju status '''
     # note - the snap doesn't place an etcd alias on disk. This shall infer
     # the version from etcdctl, as the snap distributes both in lockstep.
-    application_version_set(snap_version('etcd'))
+    application_version_set(etcd_version())
 
 
 @when_not('certificates.available')
@@ -609,7 +609,7 @@ def render_config(bag=None):
         bag = EtcdDatabag()
 
     # probe for 2.x compatibility
-    if snap_version().startswith('2.'):
+    if etcd_version().startswith('2.'):
         conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
         render('etcd2.conf', conf_path, bag.__dict__, owner='root',
                group='root')
@@ -621,17 +621,17 @@ def render_config(bag=None):
     # Close the previous client port and open the new one.
 
 
-def snap_version(snap='etcd'):
-    ''' This method surfaces the version from snap info '''
-    cmd = ['snap', 'info', '{}'.format(snap)]
+def etcd_version():
+    ''' This method surfaces the version from etcdctl '''
+    cmd = ['/snap/bin/etcd.etcdctl', '--version']
     try:
         raw_output = check_output(cmd)
         lines = raw_output.split(b'\n')
         for line in lines:
-            if b'installed:' in line:
-                # b'installed:   2.3.8 (x7) 5MB -'
+            if b'etcdctl version:' in line:
+                # etcdctl version: 3.0.17
                 # Strip and massage the output
-                version = line.split(b':')[-1].split(b' ')[3].strip()
+                version = line.split(b':')[-1].strip()
                 return str(version, 'utf-8')
         return 'n/a'
     except:
