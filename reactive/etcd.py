@@ -631,8 +631,9 @@ def etcd_version():
             if b'etcdctl version' in line:
                 # etcdctl version: 3.0.17
                 # Strip and massage the output
-                version = line.split(b':')[-1].strip()
-                return str(version, 'utf-8')
+                version = str(line, 'utf-8')
+                version = version.split('version')[-1].replace(':', '').strip()
+                return version
         return 'n/a'
     except:
         return 'n/a'
