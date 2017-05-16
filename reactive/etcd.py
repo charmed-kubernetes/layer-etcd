@@ -628,7 +628,7 @@ def etcd_version():
         raw_output = check_output(cmd)
         lines = raw_output.split(b'\n')
         for line in lines:
-            if b'etcdctl version:' in line:
+            if b'etcdctl version' in line:
                 # etcdctl version: 3.0.17
                 # Strip and massage the output
                 version = str(line, 'utf-8')
