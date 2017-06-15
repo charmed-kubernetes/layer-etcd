@@ -2,3 +2,5 @@ tests: "10-*"
 reset: false
 makefile:
   - lint
+packages:
+  - amulet
