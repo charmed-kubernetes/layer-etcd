@@ -13,7 +13,12 @@ set -ex
 ETCD_BACKUP_TARGET_DIR=$(action-get target)
 #ETCD_DATA_DIR=/var/lib/etcd/default
 UNIT_NAME=${JUJU_UNIT_NAME%%/*}
-ETCD_DATA_DIR=/var/snap/etcd/current/$UNIT_NAME$JUJU_MACHINE_ID.etcd/
+UNIT_NUM=${JUJU_UNIT_NAME#*/}
+ETCD_DATA_DIR=/var/snap/etcd/current/$UNIT_NAME$UNIT_NUM.etcd/
+if [ ! -d "$ETCD_DATA_DIR" ]; then
+  ETCD_DATA_DIR=/var/snap/etcd/current/
+fi
+
 DATE_STAMP=$(date +%Y-%m-%d-%H.%M.%S)
 ARCHIVE=etcd-snapshot-$DATE_STAMP.tar.gz
 

@@ -24,23 +24,6 @@ class TestDeployment(unittest.TestCase):
             if leader_result[0] == 'True':
                 cls.leader = unit
 
-    def test_snapshot_restore(self):
-        """
-        Trigger snapshot and restore actions
-        """
-        action_id = self.etcd[0].run_action('snapshot')
-        outcome = self.d.action_fetch(action_id,
-                                      timeout=7200,
-                                      raise_on_timeout=True,
-                                      full_output=True)
-        self.assertEqual(outcome['status'], 'completed')
-        action_id = self.etcd[0].run_action('restore')
-        outcome = self.d.action_fetch(action_id,
-                                      timeout=7200,
-                                      raise_on_timeout=True,
-                                      full_output=True)
-        self.assertEqual(outcome['status'], 'completed')
-
     def test_leader_status(self):
         ''' Verify our leader is running the etcd daemon '''
         status = self.leader.run('systemctl is-active snap.etcd.etcd')
