@@ -1,4 +1,4 @@
-tests: "10-*"
+tests: "[1-2]0-*"
 reset: false
 makefile:
   - lint
