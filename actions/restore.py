@@ -27,7 +27,11 @@ opts = layer.options('etcd')
 DATESTAMP = datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S')
 ARCHIVE = "etcd-data-{}.tar.gz".format(DATESTAMP)
 
-ETCD_DATA_DIR = opts['etcd_data_dir']
+unit_name = os.getenv('JUJU_UNIT_NAME').replace('/', '')
+ETCD_DATA_DIR = '{}/{}.etcd'.format(opts['etcd_data_dir'], unit_name)
+if not os.path.isdir(ETCD_DATA_DIR):
+    ETCD_DATA_DIR = opts['etcd_data_dir']
+
 ETCD_PORT = config('management_port')
 PRIVATE_ADDRESS = unit_get('private-address')
 SKIP_BACKUP = action_get('skip-backup')
@@ -127,7 +131,7 @@ def stop_etcd():
 
     try:
         service_stop('etcd')
-        log('Stoppd service: etcd')
+        log('Stopped service: etcd')
     except:
         log('Failed to stop service: etcd')
 
