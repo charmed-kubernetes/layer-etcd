@@ -79,8 +79,8 @@ Client certificates can be obtained by running an action on any of the cluster
 members:
 
 ```shell
-juju run-action etcd/12 package-client-certificates
-juju scp etcd/12:etcd_client_credentials.tar.gz etcd_credentials.tar.gz
+juju run-action etcd/0 package-client-credentials
+juju scp etcd/0:etcd_credentials.tar.gz etcd_credentials.tar.gz
 ```
 
 This will place the client certificates in `pwd`. If you're keen on using
