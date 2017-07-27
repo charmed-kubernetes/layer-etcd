@@ -5,7 +5,7 @@ maintainers:
   - George Kraft <george.kraft@canonical.com>
   - Rye Terrell <rye.terrell@canonical.com>
   - Konstantinos Tsakalozos <kos.tsakalozos@canonical.com>
-  - Charles Butler <charles.butler@canonical.com>
+  - Charles Butler <Chuck@dasroot.net>
 description: |
   This charm supports deploying Etcd from the upstream binaries with resources.
   It will also TLS wrap your service, and distribute client keys to any service
