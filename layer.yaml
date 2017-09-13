@@ -7,6 +7,7 @@ includes:
   - 'layer:tls-client'
   - 'layer:leadership'
   - 'layer:snap'
+  - 'layer:cdk-service-kicker'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
   - 'interface:nrpe-external-master'
@@ -34,3 +35,6 @@ options:
     server_key_path: /var/snap/etcd/common/server.key
     client_certificate_path: /var/snap/etcd/common/client.crt
     client_key_path: /var/snap/etcd/common/client.key
+  cdk-service-kicker:
+    services:
+      - snap.etcd.etcd
