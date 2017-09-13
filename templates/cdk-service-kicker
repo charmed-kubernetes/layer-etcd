@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+# This service runs for a few minutes and restarts any failing CDK services
+# it sees during that time.
+#
+# This is a hacky workaround for this bug:
+# https://github.com/juju-solutions/bundle-canonical-kubernetes/issues/357
+
+services="{{services}}"
+
+deadline="$(expr "$(date +%s)" + 600)"
+
+while [ "$(date +%s)" -lt "$deadline" ]; do
+  for service in $services; do
+    echo "$service: checking"
+    if ! systemctl is-active "$service"; then
+      echo "$service: not active, restarting"
+      systemctl restart "$service" || true
+    fi
+  done
+
+  sleep 10
+done
+
+echo "deadline has passed, exiting gracefully"

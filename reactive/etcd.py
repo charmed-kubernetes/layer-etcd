@@ -118,6 +118,7 @@ def remove_states():
     remove_state('etcd.tls.secured')
 
     remove_state('etcd.ssl.placed')
+    remove_state('cdk-service-kicker.installed')
 
 
 @when('snap.installed.etcd')
@@ -255,6 +256,30 @@ def send_cluster_details(proxy):
 def snap_install():
     channel = hookenv.config('channel')
     snap.install('etcd', channel=channel, classic=True)
+
+
+@when_not('cdk-service-kicker.installed')
+def install_cdk_service_kicker():
+    ''' Installs the cdk-service-kicker service. Workaround for
+    https://github.com/juju-solutions/bundle-canonical-kubernetes/issues/357
+    '''
+    source = 'cdk-service-kicker'
+    dest = '/usr/bin/cdk-service-kicker'
+    services = [
+        'snap.etcd.etcd'
+    ]
+    context = {'services': ' '.join(services)}
+    render(source, dest, context)
+    os.chmod('/usr/bin/cdk-service-kicker', 0o775)
+
+    source = 'cdk-service-kicker.service'
+    dest = '/etc/systemd/system/cdk-service-kicker.service'
+    context = {}
+    render(source, dest, context)
+    command = ['systemctl', 'enable', 'cdk-service-kicker']
+    check_call(command)
+
+    set_state('cdk-service-kicker.installed')
 
 
 @when('etcd.ssl.placed')
