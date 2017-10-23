@@ -635,5 +635,5 @@ def etcd_version():
                 version = version.split('version')[-1].replace(':', '').strip()
                 return version
         return 'n/a'
-    except:
+    except: # NOQA
         return 'n/a'
