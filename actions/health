@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+source ~/.bash_aliases
 OUT=$(/snap/bin/etcd.etcdctl -C http://127.0.0.1:4001 cluster-health)
 
 action-set result-map.message="${OUT}"
