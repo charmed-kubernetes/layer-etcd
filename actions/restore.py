@@ -14,6 +14,7 @@ from charmhelpers.core.host import service_stop
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
+from subprocess import CalledProcessError
 from subprocess import Popen
 from subprocess import PIPE
 from datetime import datetime
@@ -68,6 +69,42 @@ def render_backup():
 def unpack_resource():
     ''' Grab the resource path, and unpack it into $PATH '''
     cmd = "tar xvf {0} -C {1}".format(SNAPSHOT_ARCHIVE, ETCD_DATA_DIR)
+    check_call(split(cmd))
+
+
+def is_v3_backup():
+    ''' See if the backup file contains a db file indicating a v3 backup '''
+    cmd = "tar -tvf {0} --wildcards '*/db'".format(SNAPSHOT_ARCHIVE)
+    try:
+        check_call(split(cmd))
+    except CalledProcessError:
+        return False
+    return True
+
+
+def restore_v3_backup():
+    ''' Apply a v3 backup '''
+    cmd = "mkdir -p /var/tmp/restore-v3"
+    check_call(split(cmd))
+
+    cmd = "tar xvf {0} -C /var/tmp/restore-v3".format(SNAPSHOT_ARCHIVE)
+    check_call(split(cmd))
+
+    # Use the insecure 4001 port we have open in our deployment
+    environ = dict(os.environ, ETCDCTL_API="3")
+    cmd = "/snap/bin/etcdctl --endpoints=http://localhost:4001 snapshot " \
+          "restore /var/tmp/restore-v3/db --skip-hash-check --data-dir='/var/tmp/restore-v3/etcd'"
+    check_call(split(cmd), env=environ)
+
+    # Make sure we do not have anything left from any old deployments
+    cmd = "rm -rf /var/snap/etcd/current/member"
+    check_call(split(cmd))
+
+    cmd = "cp -r /var/tmp/restore-v3/etcd/member /var/snap/etcd/current/"
+    check_call(split(cmd))
+
+    # Clean up
+    cmd = "rm -rf /var/tmp/restore-v3"
     check_call(split(cmd))
 
 
@@ -153,9 +190,12 @@ if __name__ == '__main__':
     preflight_check()
     stop_etcd()
     render_backup()
-    unpack_resource()
-    pid = start_etcd_forked()
-    probe_forked_etcd()
-    reconfigure_client_advertise()
-    pkill_etcd(pid)
+    if is_v3_backup():
+        restore_v3_backup()
+    else:
+        unpack_resource()
+        pid = start_etcd_forked()
+        probe_forked_etcd()
+        reconfigure_client_advertise()
+        pkill_etcd(pid)
     service_start(opts['etcd_daemon_process'])

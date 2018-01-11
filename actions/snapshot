@@ -11,6 +11,7 @@ set -ex
 # prevent the new node from inadvertently being joined onto an existing cluster.
 
 ETCD_BACKUP_TARGET_DIR=$(action-get target)
+ETCD_KEYS_VERSION=$(action-get keys-version)
 #ETCD_DATA_DIR=/var/lib/etcd/default
 UNIT_NAME=${JUJU_UNIT_NAME%%/*}
 UNIT_NUM=${JUJU_UNIT_NAME#*/}
@@ -25,8 +26,16 @@ ARCHIVE=etcd-snapshot-$DATE_STAMP.tar.gz
 # Ensure the backupd target exists
 mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_ID
 
-# Dump the data currently in the cluster
-/snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+if [ "${ETCD_KEYS_VERSION}" == "v2" ]; then
+  # Dump the data currently in the cluster
+  /snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+elif [ "${ETCD_KEYS_VERSION}" == "v3" ]; then
+  mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+  cp /var/snap/etcd/current/member/snap/db $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+else
+  action-fail "keys-version must be either v2 or v3"
+  exit
+fi
 
 # Create the backup archive
 cd $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
