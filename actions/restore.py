@@ -100,18 +100,32 @@ def restore_v3_backup():
           "--data-dir='/var/tmp/restore-v3/etcd' " \
           "--initial-cluster='{}' --initial-cluster-token='{}' " \
           "--initial-advertise-peer-urls='{}' --name='{}'"
-    cmd = cmd.format(config['initial-cluster'],
-                     config['initial-cluster-token'],
-                     config['initial-advertise-peer-urls'],
-                     config['name'])
+
+    if 'initial-cluster' in config:
+        # configuration contains initilization params
+        cmd = cmd.format(config['initial-cluster'],
+                         config['initial-cluster-token'],
+                         config['initial-advertise-peer-urls'],
+                         config['name'])
+    else:
+        # configuration does not contain initilization params
+        # probably coming from an etcd upgrades from etcd2
+        initial_cluster = '{}=https://{}:2380'.format(config['name'], PRIVATE_ADDRESS)
+        initial_cluster_token = PRIVATE_ADDRESS
+        initial_urls = 'https://{}:2380'.format(PRIVATE_ADDRESS)
+        cmd = cmd.format(initial_cluster,
+                         initial_cluster_token,
+                         initial_urls,
+                         config['name'])
+
     configfile.close()
     check_call(split(cmd), env=environ)
 
     # Make sure we do not have anything left from any old deployments
-    cmd = "rm -rf /var/snap/etcd/current/member"
+    cmd = "rm -rf {}/member".format(config['data-dir'])
     check_call(split(cmd))
 
-    cmd = "cp -r /var/tmp/restore-v3/etcd/member /var/snap/etcd/current/"
+    cmd = "cp -r /var/tmp/restore-v3/etcd/member {}".format(config['data-dir'])
     check_call(split(cmd))
 
     # Clean up

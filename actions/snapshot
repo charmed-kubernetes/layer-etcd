@@ -31,7 +31,7 @@ if [ "${ETCD_KEYS_VERSION}" == "v2" ]; then
   /snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 elif [ "${ETCD_KEYS_VERSION}" == "v3" ]; then
   mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
-  cp /var/snap/etcd/current/member/snap/db $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+  cp $ETCD_DATA_DIR/member/snap/db $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 else
   action-fail "keys-version must be either v2 or v3"
   exit
