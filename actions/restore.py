@@ -22,6 +22,7 @@ import hashlib
 import os
 import sys
 import time
+import yaml
 
 opts = layer.options('etcd')
 
@@ -90,10 +91,20 @@ def restore_v3_backup():
     cmd = "tar xvf {0} -C /var/tmp/restore-v3".format(SNAPSHOT_ARCHIVE)
     check_call(split(cmd))
 
+    configfile = open('/var/snap/etcd/common/etcd.conf.yml', "r")
+    config = yaml.load(configfile)
     # Use the insecure 4001 port we have open in our deployment
     environ = dict(os.environ, ETCDCTL_API="3")
     cmd = "/snap/bin/etcdctl --endpoints=http://localhost:4001 snapshot " \
-          "restore /var/tmp/restore-v3/db --skip-hash-check --data-dir='/var/tmp/restore-v3/etcd'"
+          "restore /var/tmp/restore-v3/db --skip-hash-check " \
+          "--data-dir='/var/tmp/restore-v3/etcd' " \
+          "--initial-cluster='{}' --initial-cluster-token='{}' " \
+          "--initial-advertise-peer-urls='{}' --name='{}'"
+    cmd = cmd.format(config['initial-cluster'],
+                     config['initial-cluster-token'],
+                     config['initial-advertise-peer-urls'],
+                     config['name'])
+    configfile.close()
     check_call(split(cmd), env=environ)
 
     # Make sure we do not have anything left from any old deployments
