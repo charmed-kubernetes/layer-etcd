@@ -29,6 +29,7 @@ from charmhelpers.contrib.charmsupport import nrpe
 from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
+from etcd_lib import get_ingress_address
 
 from shlex import split
 from subprocess import check_call
@@ -104,10 +105,12 @@ def missing_relation_notice():
 def prepare_tls_certificates(tls):
     status_set('maintenance', 'Requesting tls certificates.')
     common_name = hookenv.unit_public_ip()
-    sans = []
-    sans.append(hookenv.unit_public_ip())
-    sans.append(hookenv.unit_private_ip())
-    sans.append(socket.gethostname())
+    sans = set()
+    sans.add(hookenv.unit_public_ip())
+    sans.add(get_ingress_address('db'))
+    sans.add(get_ingress_address('cluster'))
+    sans.add(socket.gethostname())
+    sans = list(sans)
     certificate_name = hookenv.local_unit().replace('/', '_')
     tls.request_server_cert(common_name, sans, certificate_name)
 
@@ -152,8 +155,9 @@ def leader_config_changed():
         render_config()
         # Close the previous client port and open the new one.
         close_open_ports()
+        address = get_ingress_address('cluster')
         leader_set({'leader_address':
-                   get_connection_string([bag.private_address],
+                   get_connection_string([address],
                                          bag.management_port)})
         host.service_restart(bag.etcd_daemon)
 
@@ -173,6 +177,13 @@ def follower_config_changed():
     close_open_ports()
 
 
+@when('cluster.joined')
+def set_db_ingress_address(cluster):
+    ''' Send db ingress address to peers on the cluster relation '''
+    address = get_ingress_address('db')
+    cluster.set_db_ingress_address(address)
+
+
 @when('db.connected')
 @when('etcd.ssl.placed')
 @when('cluster.joined')
@@ -183,17 +194,17 @@ def send_cluster_connection_details(cluster, db):
     key = read_tls_cert('client.key')
     ca = read_tls_cert('ca.crt')
     etcdctl = EtcdCtl()
-    bag = EtcdDatabag()
 
     # Set the key, cert, and ca on the db relation
     db.set_client_credentials(key, cert, ca)
 
     port = hookenv.config().get('port')
     # Get all the peers participating in the cluster relation.
-    members = cluster.get_peer_addresses()
+    members = cluster.get_db_ingress_addresses()
     # Append our own address to the membership list, because peers dont self
     # actualize
-    members.append(bag.private_address)
+    address = get_ingress_address('db')
+    members.append(address)
     members.sort()
     # Create a connection string with all the members on the configured port.
     connection_string = get_connection_string(members, port)
@@ -217,7 +228,8 @@ def send_single_connection_details(db):
 
     bag = EtcdDatabag()
     # Get all the peers participating in the cluster relation.
-    members = [bag.private_address]
+    address = get_ingress_address('db')
+    members = [address]
     # Create a connection string with this member on the configured port.
     connection_string = get_connection_string(members, bag.port)
     # Set the connection string on the db relation.
@@ -355,7 +367,8 @@ def initialize_new_leader():
     bag = EtcdDatabag()
     bag.token = bag.token
     bag.cluster_state = 'new'
-    cluster_connection_string = get_connection_string([bag.private_address],
+    address = get_ingress_address('cluster')
+    cluster_connection_string = get_connection_string([address],
                                                       bag.management_port)
     bag.cluster = "{}={}".format(bag.unit_name, cluster_connection_string)
 
@@ -373,7 +386,7 @@ def initialize_new_leader():
         return
     # We have a healthy leader, broadcast initial data-points for followers
     open_port(bag.port)
-    leader_connection_string = get_connection_string([bag.private_address],
+    leader_connection_string = get_connection_string([address],
                                                      bag.port)
     leader_set({'token': bag.token,
                 'leader_address': leader_connection_string,

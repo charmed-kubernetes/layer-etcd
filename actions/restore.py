@@ -6,11 +6,11 @@ from charmhelpers.core.hookenv import action_get
 from charmhelpers.core.hookenv import action_set
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
-from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import resource_get
 from charmhelpers.core.host import chdir
 from charmhelpers.core.host import service_start
 from charmhelpers.core.host import service_stop
+from etcd_lib import get_ingress_address
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
@@ -33,7 +33,7 @@ if not os.path.isdir(ETCD_DATA_DIR):
     ETCD_DATA_DIR = opts['etcd_data_dir']
 
 ETCD_PORT = config('management_port')
-PRIVATE_ADDRESS = unit_get('private-address')
+CLUSTER_ADDRESS = get_ingress_address('cluster')
 SKIP_BACKUP = action_get('skip-backup')
 SNAPSHOT_ARCHIVE = resource_get('snapshot')
 TARGET_PATH = action_get('target')
@@ -117,7 +117,7 @@ def reconfigure_client_advertise():
     member_id = members.split(b':')[0].decode('utf-8')
 
     raw_update = "/snap/bin/etcd.etcdctl member update {0} http://{1}:{2}"
-    update_cmd = raw_update.format(member_id, PRIVATE_ADDRESS, ETCD_PORT)
+    update_cmd = raw_update.format(member_id, CLUSTER_ADDRESS, ETCD_PORT)
     check_call(split(update_cmd))
 
 

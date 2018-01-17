@@ -23,11 +23,11 @@ class EtcdCtl:
 
         @params cluster_data - a dict of data to fill out the request to
         push our registration to the leader
-        requires keys: leader_address, port, unit_name, private_address,
+        requires keys: leader_address, port, unit_name, cluster_address,
         management_port
         '''
         # Build a connection string for the cluster data.
-        connection = get_connection_string([cluster_data['private_address']],
+        connection = get_connection_string([cluster_data['cluster_address']],
                                            cluster_data['management_port'])
         # Create a https url to the leader unit name on the private addres.
         command = "{3} -C {0} member add {1} " \
