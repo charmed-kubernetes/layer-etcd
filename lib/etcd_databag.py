@@ -5,6 +5,7 @@ from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core import unitdata
 from charms.reactive import is_state
+from etcd_lib import get_ingress_address
 
 import string
 import random
@@ -18,7 +19,8 @@ class EtcdDatabag:
     when expanded looks like the following:
 
     {'public_address': '127.0.0.1',
-     'private_address': '127.0.0.1',
+     'cluster_address': '127.0.0.1',
+     'db_address': '127.0.0.1',
      'unit_name': 'etcd0',
      'port': '2380',
      'management_port': '2379',
@@ -35,7 +37,8 @@ class EtcdDatabag:
         self.management_port = config('management_port')
         # Live polled properties
         self.public_address = unit_get('public-address')
-        self.private_address = unit_get('private-address')
+        self.cluster_address = get_ingress_address('cluster')
+        self.db_address = get_ingress_address('db')
         self.unit_name = os.getenv('JUJU_UNIT_NAME').replace('/', '')
 
         # Pull the TLS certificate paths from layer data

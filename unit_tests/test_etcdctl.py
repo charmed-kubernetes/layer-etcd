@@ -12,7 +12,7 @@ class TestEtcdCtl:
 
     def test_register(self):
         with patch('etcdctl.check_output') as spcm:
-            self.etcdctl().register({'private_address': '127.0.0.1',
+            self.etcdctl().register({'cluster_address': '127.0.0.1',
                                      'unit_name': 'etcd0',
                                      'management_port': '1313',
                                      'leader_address': 'http://127.1.1.1:1212'})  # noqa
