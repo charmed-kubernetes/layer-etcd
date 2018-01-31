@@ -110,9 +110,9 @@ def restore_v3_backup():
     else:
         # configuration does not contain initilization params
         # probably coming from an etcd upgrades from etcd2
-        initial_cluster = '{}=https://{}:2380'.format(config['name'], PRIVATE_ADDRESS)
-        initial_cluster_token = PRIVATE_ADDRESS
-        initial_urls = 'https://{}:2380'.format(PRIVATE_ADDRESS)
+        initial_cluster = '{}=https://{}:2380'.format(config['name'], CLUSTER_ADDRESS)
+        initial_cluster_token = CLUSTER_ADDRESS
+        initial_urls = 'https://{}:2380'.format(CLUSTER_ADDRESS)
         cmd = cmd.format(initial_cluster,
                          initial_cluster_token,
                          initial_urls,
