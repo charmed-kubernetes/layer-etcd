@@ -330,6 +330,11 @@ def register_node_with_leader(cluster):
 
             bag.cluster_unit_id = resp['cluster_unit_id']
             bag.cluster = resp['cluster']
+        else:
+            log('etcdctl.register failed, will retry')
+            msg = 'Waiting to retry etcd registration'
+            status_set('waiting', msg)
+            return
 
     render_config(bag)
     host.service_restart(bag.etcd_daemon)
