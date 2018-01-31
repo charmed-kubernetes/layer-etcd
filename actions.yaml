@@ -19,6 +19,10 @@ snapshot:
       type: string
       default: '/home/ubuntu/etcd-snapshots'
       description: Location to save the etcd snapshot.
+    keys-version:
+      type: string
+      default: 'v2'
+      description: Version of keys to snapshoot. Allowed values 'v3' or 'v2'.
 restore:
   description: Restore an etcd cluster's data from a snapshot tarball.
   params:
