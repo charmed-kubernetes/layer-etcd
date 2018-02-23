@@ -18,7 +18,7 @@ force: build
 	juju upgrade-charm etcd --path=${JUJU_REPOSITORY}/builds/etcd --force-units
 
 test-convoluted:
-	charm build -o tmp -r --no-local-layers
+	charm build -o tmp -r --no-local-layers -l DEBUG
 	tox -c tmp/builds/etcd/tox.ini
 	rm -rf tmp
 
