@@ -8,7 +8,10 @@ install:
  - pip install tox
  - sudo add-apt-repository -y ppa:juju/stable
  - sudo apt-get update
- - sudo apt-get install -y charm-tools
+ - sudo apt-get install -y snapd charm-tools
+ - sudo snap install charm
 
 script:
- - make test-convoluted
+ - mkdir -p $HOME/tmp/repo/layer
+ - mkdir -p $HOME/tmp/repo/interface
+ - PATH=/snap/bin:$PATH JUJU_REPOSITORY=$HOME/tmp/repo LAYER_PATH=$HOME/tmp/repo/layer INTERFACE_PATH=$HOME/tmp/repo/interface make test-convoluted
