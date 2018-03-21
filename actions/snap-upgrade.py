@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/sbin/charm-env python3
 
 from charms.layer import snap
 from charmhelpers.core import unitdata
