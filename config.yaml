@@ -9,5 +9,5 @@ options:
     description: Port to run the ETCD Management service
   channel:
     type: string
-    default: 3.2/stable
+    default: 2.3/stable
     description: The snap channel to install from
