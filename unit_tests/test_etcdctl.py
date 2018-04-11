@@ -53,7 +53,8 @@ class TestEtcdCtl:
             assert(members['etcd9']['peer_urls'] == 'https://10.113.96.178:2380')  # noqa
             assert(members['etcd9']['client_urls'] == 'https://10.113.96.178:2379')  # noqa
             assert('unstarted' in members.keys())
-            assert(members['unstarted'] == {})
+            assert(members['unstarted']['unit_id'] == '57fa5c39949c138e')
+            assert(members['unstarted']['peer_urls'] == 'http://10.113.96.80:2380')
 
     def test_etcd_v2_version(self):
         ''' Validate that etcdctl can parse versions for both etcd v2 and
