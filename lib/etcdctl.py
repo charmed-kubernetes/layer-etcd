@@ -95,10 +95,10 @@ class EtcdCtl:
         for unit in raw_member_list:
             if '[unstarted]' in unit:
                 unit_guid = unit.split('[')[0]
+                members['unstarted'] = {'unit_id': unit_guid}
                 if 'peerURLs=' in unit:
                     peer_urls = unit.split(' ')[1].split("=")[-1]
-                members['unstarted'] = {'unit_id': unit_guid,
-                                        'peer_urls': peer_urls}
+                    members['peer_urls'] = peer_urls
                 continue
             unit_guid = unit.split(':')[0]
             unit_name = unit.split(' ')[1].split("=")[-1]
