@@ -98,7 +98,7 @@ class EtcdCtl:
                 members['unstarted'] = {'unit_id': unit_guid}
                 if 'peerURLs=' in unit:
                     peer_urls = unit.split(' ')[1].split("=")[-1]
-                    members['peer_urls'] = peer_urls
+                    members['unstarted']['peer_urls'] = peer_urls
                 continue
             unit_guid = unit.split(':')[0]
             unit_name = unit.split(' ')[1].split("=")[-1]
