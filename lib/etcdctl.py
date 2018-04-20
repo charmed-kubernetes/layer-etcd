@@ -90,10 +90,15 @@ class EtcdCtl:
         # Expect output like this:
         # 4f24ee16c889f6c1: name=etcd20 peerURLs=https://10.113.96.197:2380 clientURLs=https://10.113.96.197:2379  # noqa
         # edc04bb81479d7e8: name=etcd21 peerURLs=https://10.113.96.243:2380 clientURLs=https://10.113.96.243:2379  # noqa
+        # edc0dsa81479d7e8[unstarted]: peerURLs=https://10.113.96.124:2380  # noqa
 
         for unit in raw_member_list:
             if '[unstarted]' in unit:
-                members['unstarted'] = {}
+                unit_guid = unit.split('[')[0]
+                members['unstarted'] = {'unit_id': unit_guid}
+                if 'peerURLs=' in unit:
+                    peer_urls = unit.split(' ')[1].split("=")[-1]
+                    members['unstarted']['peer_urls'] = peer_urls
                 continue
             unit_guid = unit.split(':')[0]
             unit_name = unit.split(' ')[1].split("=")[-1]

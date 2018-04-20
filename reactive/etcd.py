@@ -326,8 +326,21 @@ def register_node_with_leader(cluster):
 
     for unit in peers:
         if 'client_urls' not in peers[unit].keys():
-            # we cannot register. State not attainable.
             msg = 'Waiting for unit to complete registration.'
+            if ('peer_urls' in peers[unit].keys() and
+                    peers[unit]['peer_urls'] and
+                    get_ingress_address('cluster') in peers[unit]['peer_urls'] and  # noqa
+                    not host.service_running(bag.etcd_daemon)):
+                # We have a peer that is unstarted and it is this node.
+                # We do not run etcd now. Instead of blocking everyone
+                # try to self-unregister.
+                try:
+                    leader_address = leader_get('leader_address')
+                    msg = 'Etcd service did not start. Will retry soon.'
+                    etcdctl.unregister(peers[unit]['unit_id'], leader_address)
+                except CalledProcessError:
+                    log('Notice:  Unit failed to unregister', 'WARNING')
+            # we cannot register. State not attainable.
             status_set('waiting', msg)
             return
 
