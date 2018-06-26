@@ -4,3 +4,4 @@ makefile:
   - lint
 packages:
   - amulet
+  - tox
