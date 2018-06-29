@@ -29,6 +29,7 @@ resources:
     description: Snap package of etcd
 series:
   - xenial
+  - bionic
 storage:
   data:
    type: block
