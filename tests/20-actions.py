@@ -4,7 +4,6 @@ import os
 import re
 import unittest
 import subprocess
-import time
 
 import amulet
 
@@ -47,7 +46,7 @@ class TestActions(unittest.TestCase):
         filenames = {}
         for dataset in ['v2', 'v3']:
             # Take snapshot of data
-            action_id = self.etcd[0].run_action('snapshot', {'keys-version':dataset})
+            action_id = self.etcd[0].run_action('snapshot', {'keys-version': dataset})
             outcome = self.d.action_fetch(action_id,
                                           timeout=7200,
                                           raise_on_timeout=True,

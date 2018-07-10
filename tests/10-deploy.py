@@ -30,6 +30,18 @@ class TestDeployment(unittest.TestCase):
         self.assertFalse("inactive" in status[0])
         self.assertTrue("active" in status[0])
 
+    def test_config_snapd_refresh(self):
+        ''' Verify initial snap refresh config is set and can be changed '''
+        # default timer should be some day of the week followed by a number
+        timer = self.leader.run('snap get core refresh.timer')
+        self.assertTrue(len(timer[0]) == len('dayX'))
+
+        # verify a new timer value
+        self.d.configure('etcd', {'snapd_refresh': 'fri5'})
+        self.d.sentry.wait()
+        timer = self.leader.run('snap get core refresh.timer')
+        self.assertTrue(timer[0] == 'fri5')
+
     def test_node_scale(self):
         ''' Scale beyond 1 node because etcd supports peering as a standalone
         application.'''

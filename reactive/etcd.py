@@ -10,6 +10,7 @@ from charms.reactive import when_not
 from charms.reactive import set_state
 from charms.reactive import remove_state
 from charms.reactive import hook
+from charms.reactive.helpers import data_changed
 
 from charms.templating.jinja2 import render
 
@@ -412,6 +413,37 @@ def initialize_new_leader():
 
     # finish bootstrap delta and set configured state
     set_state('etcd.leader.configured')
+
+
+@when('snap.installed.etcd')
+@when('leadership.is_leader')
+def process_snapd_timer():
+    ''' Set the snapd refresh timer on the leader so all cluster members
+    (present and future) will refresh near the same time. '''
+    # Get the current snapd refresh timer (layer-snap will set this). Note
+    # we can't use snap.get because layer-snap doesn't set snap.installed.core.
+    cmd = ['snap', 'get', 'core', 'refresh.timer']
+    try:
+        system_timer = check_output(cmd).decode('utf-8')
+    except CalledProcessError:
+        log('snapd_refresh timer not yet set, will retry')
+        return
+
+    # The first time through, data_changed will be true. Subsequent calls
+    # should only update leader data if something changed.
+    if data_changed('etcd_snapd_refresh', system_timer):
+        log('setting snapd_refresh timer to: {}'.format(system_timer))
+        leader_set({'snapd_refresh': system_timer})
+
+
+@when('snap.installed.etcd')
+@when('leadership.changed.snapd_refresh')
+@when_not('leadership.is_leader')
+def set_snapd_timer():
+    ''' Set the snapd refresh.timer on non-leader cluster members. '''
+    timer = leader_get('snapd_refresh')
+    log('setting snapd_refresh timer to: {}'.format(timer))
+    snap.set_refresh_timer(timer)
 
 
 @when('tls_client.ca.saved', 'tls_client.server.key.saved',
