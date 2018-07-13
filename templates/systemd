@@ -18,6 +18,7 @@ ExecStart=/usr/bin/etcd $DAEMON_ARGS
 Restart=on-abnormal
 #RestartSec=10s
 LimitNOFILE=65536
+StartLimitBurst=0
 
 [Install]
 WantedBy=multi-user.target
