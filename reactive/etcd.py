@@ -29,7 +29,7 @@ from charmhelpers.contrib.charmsupport import nrpe
 from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
-from etcd_lib import get_ingress_address
+from etcd_lib import get_ingress_address, get_ingress_addresses
 
 from shlex import split
 from subprocess import check_call
@@ -107,8 +107,8 @@ def prepare_tls_certificates(tls):
     common_name = hookenv.unit_public_ip()
     sans = set()
     sans.add(hookenv.unit_public_ip())
-    sans.add(get_ingress_address('db'))
-    sans.add(get_ingress_address('cluster'))
+    sans.update(get_ingress_addresses('db'))
+    sans.update(get_ingress_addresses('cluster'))
     sans.add(socket.gethostname())
     sans = list(sans)
     certificate_name = hookenv.local_unit().replace('/', '_')
