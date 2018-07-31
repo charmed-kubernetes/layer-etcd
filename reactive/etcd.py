@@ -368,6 +368,10 @@ def initialize_new_leader():
                 'leader_address': leader_connection_string,
                 'cluster': bag.cluster})
 
+    # set registered state since if we ever become a follower, we will not need
+    # to re-register
+    set_state('etcd.registered')
+
     # finish bootstrap delta and set configured state
     set_state('etcd.leader.configured')
 
