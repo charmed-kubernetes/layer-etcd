@@ -63,9 +63,6 @@ class EtcdDatabag:
         self.token = self.cluster_token()
         self.cluster_state = 'existing'
 
-        self.cluster_unit_id = self.db.get('cluster_unit_id')
-        self.registration_peer_string = self.db.get('registration_peer_string')
-
     def cluster_token(self):
         ''' Getter to return the unique cluster token. '''
         if not is_leader():
@@ -84,9 +81,6 @@ class EtcdDatabag:
         '''
         chars = string.ascii_uppercase + string.digits
         return ''.join(random.choice(chars) for _ in range(size))
-
-    def cache_registration_detail(self, key, val):
-        self.db.set(key, val)
 
     def storage_path(self):
         ''' Storage mounts are limited in snap confinement. Default behavior

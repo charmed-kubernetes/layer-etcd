@@ -35,7 +35,6 @@ from etcd_lib import get_ingress_address, get_ingress_addresses
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
-from subprocess import CalledProcessError
 
 import os
 import charms.leadership  # noqa
@@ -304,74 +303,32 @@ def register_node_with_leader(cluster):
     information the unit will enter a race condition and must wait for a clean
     status output before we can progress to self registration.
     '''
-    # We're going to communicate with the leader, and we need our bootstrap
-    # startup string once.. TBD after that.
     etcdctl = EtcdCtl()
     bag = EtcdDatabag()
-    # Assume a hiccup during registration and attempt a retry
-    if bag.cluster_unit_id:
-        bag.cluster = bag.registration_peer_string
-        # conf_path = '{}/etcd.conf'.format(bag.etcd_conf_dir)
-        render_config(bag)
-        time.sleep(2)
+    leader_address = leader_get('leader_address')
+    bag.leader_address = leader_address
 
     try:
-        peers = etcdctl.member_list(leader_get('leader_address'))
-    except CalledProcessError:
-        log("Etcd attempted to invoke registration before service ready")
-        # This error state is transient, and does not imply the unit is broken.
-        # Erroring at this stage can be resolved, and should not effect the
-        # overall condition of unit turn-up. Return from the method and let the
-        # charm re-invoke on next run
-        return
+        # Check if we are already registered. Unregister ourselves if we are so
+        # we can register from scratch.
+        peer_url = 'https://%s:%s' % (bag.cluster_address, bag.management_port)
+        members = etcdctl.member_list(leader_address)
+        for member_name, member in members.items():
+            if member['peer_urls'] == peer_url:
+                log('Found member that matches our peer URL. Unregistering...')
+                etcdctl.unregister(member['unit_id'], leader_address)
 
-    for unit in peers:
-        if 'client_urls' not in peers[unit].keys():
-            msg = 'Waiting for unit to complete registration.'
-            if ('peer_urls' in peers[unit].keys() and
-                    peers[unit]['peer_urls'] and
-                    get_ingress_address('cluster') in peers[unit]['peer_urls'] and  # noqa
-                    not host.service_running(bag.etcd_daemon)):
-                # We have a peer that is unstarted and it is this node.
-                # We do not run etcd now. Instead of blocking everyone
-                # try to self-unregister.
-                try:
-                    leader_address = leader_get('leader_address')
-                    msg = 'Etcd service did not start. Will retry soon.'
-                    etcdctl.unregister(peers[unit]['unit_id'], leader_address)
-                except CalledProcessError:
-                    log('Notice:  Unit failed to unregister', 'WARNING')
-            # we cannot register. State not attainable.
-            status_set('waiting', msg)
-            return
-
-    if not bag.cluster_unit_id:
-        bag.leader_address = leader_get('leader_address')
+        # Now register.
         resp = etcdctl.register(bag.__dict__)
-        if resp and 'cluster_unit_id' in resp.keys() and 'cluster' in resp.keys():  # noqa
-            bag.cache_registration_detail('cluster_unit_id',
-                                          resp['cluster_unit_id'])
-            bag.cache_registration_detail('registration_peer_string',
-                                          resp['cluster'])
-
-            bag.cluster_unit_id = resp['cluster_unit_id']
-            bag.cluster = resp['cluster']
-        else:
-            log('etcdctl.register failed, will retry')
-            msg = 'Waiting to retry etcd registration'
-            status_set('waiting', msg)
-            return
+        bag.cluster = resp['cluster']
+    except EtcdCtl.CommandFailed:
+        log('etcdctl.register failed, will retry')
+        msg = 'Waiting to retry etcd registration'
+        status_set('waiting', msg)
+        return
 
     render_config(bag)
     host.service_restart(bag.etcd_daemon)
-    time.sleep(2)
-
-    # Check health status before we say we are good
-    etcdctl = EtcdCtl()
-    status = etcdctl.cluster_health()
-    if 'unhealthy' in status:
-        status_set('blocked', 'Cluster not healthy.')
-        return
     open_port(bag.port)
     set_state('etcd.registered')
 
@@ -410,6 +367,10 @@ def initialize_new_leader():
     leader_set({'token': bag.token,
                 'leader_address': leader_connection_string,
                 'cluster': bag.cluster})
+
+    # set registered state since if we ever become a follower, we will not need
+    # to re-register
+    set_state('etcd.registered')
 
     # finish bootstrap delta and set configured state
     set_state('etcd.leader.configured')

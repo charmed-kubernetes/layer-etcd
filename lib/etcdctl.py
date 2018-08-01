@@ -16,6 +16,8 @@ class EtcdCtl:
     ''' etcdctl modeled as a python class. This python wrapper consumes
     and exposes some of the commands contained in etcdctl. Related to unit
     registration, cluster health, and other operations '''
+    class CommandFailed(Exception):
+        pass
 
     def register(self, cluster_data):
         ''' Perform self registration against the etcd leader and returns the
@@ -37,9 +39,9 @@ class EtcdCtl:
 
         try:
             result = self.run(command)
-        except CalledProcessError:
+        except EtcdCtl.CommandFailed:
             log('Notice:  Unit failed self registration', 'WARNING')
-            return
+            raise
 
         # ['Added member named etcd12 with ID b9ab5b5a2e4baec5 to cluster',
         # '', 'ETCD_NAME="etcd12"',
@@ -49,8 +51,6 @@ class EtcdCtl:
         reg = {}
 
         for line in result.split('\n'):
-            if 'Added member' in line:
-                reg['cluster_unit_id'] = line.split('ID')[-1].strip(' ').split(' ')[0]  # noqa
             if 'ETCD_INITIAL_CLUSTER=' in line:
                 reg['cluster'] = line.split('="')[-1].rstrip('"')
         return reg
@@ -124,9 +124,8 @@ class EtcdCtl:
             log(command)
             # Run the member update command for the existing unit_id.
             out = self.run(command)
-        except CalledProcessError as cpe:
+        except EtcdCtl.CommandFailed:
             log('Failed to update member {0}'.format(unit_id), 'WARNING')
-            log(cpe.output)
         return out
 
     def cluster_health(self):
@@ -138,9 +137,8 @@ class EtcdCtl:
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
-        except CalledProcessError as cpe:
+        except EtcdCtl.CommandFailed:
             log('Notice:  Unit failed cluster-health check', 'WARNING')
-            log(cpe.output)
             health['status'] = 'cluster is unhealthy see log file for details.'
             health['units'] = []
         return health
@@ -155,7 +153,11 @@ class EtcdCtl:
         os.environ['ETCDCTL_CA_FILE'] = ca_path
         os.environ['ETCDCTL_CERT_FILE'] = crt_path
         os.environ['ETCDCTL_KEY_FILE'] = key_path
-        return check_output(split(command)).decode('ascii')
+        try:
+            return check_output(split(command)).decode('ascii')
+        except CalledProcessError as e:
+            log(e.output)
+            raise EtcdCtl.CommandFailed() from e
 
     def version(self):
         ''' Return the version of etcdctl '''
