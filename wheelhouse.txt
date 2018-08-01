@@ -1,3 +1,2 @@
 path.py>=8.0.0,<=9.0.0
-setuptools_scm
 charms.templating.jinja2>=1.0.0,<2.0.0
