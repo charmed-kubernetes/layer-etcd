@@ -177,6 +177,17 @@ def follower_config_changed():
     close_open_ports()
 
 
+@when('snap.installed.etcd')
+@when('config.changed.service_network_interface')
+@when_not('etcd.installed')
+def service_network_interface_changed():
+    ''' Config must be updated and service restarted '''
+    bag = EtcdDatabag()
+    log('Rendering config file for {0}'.format(bag.unit_name))
+    render_config()
+    host.service_restart(bag.etcd_daemon)
+
+
 @when('cluster.joined')
 def set_db_ingress_address(cluster):
     ''' Send db ingress address to peers on the cluster relation '''

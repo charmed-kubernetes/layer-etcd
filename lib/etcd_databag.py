@@ -3,6 +3,8 @@ from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_get
+from charmhelpers.core.hookenv import unit_private_ip
+from charmhelpers.core.hookenv import unit_public_ip
 from charmhelpers.core import unitdata
 from charms.reactive import is_state
 from etcd_lib import get_ingress_address
@@ -22,6 +24,7 @@ class EtcdDatabag:
      'cluster_address': '127.0.0.1',
      'db_address': '127.0.0.1',
      'unit_name': 'etcd0',
+     'bind_address': '127.0.0.1',
      'port': '2380',
      'management_port': '2379',
      'ca_certificate': '/etc/ssl/etcd/ca.crt',
@@ -33,6 +36,7 @@ class EtcdDatabag:
 
     def __init__(self):
         self.db = unitdata.kv()
+        self.bind_address = self.get_bind_address()
         self.port = config('port')
         self.management_port = config('management_port')
         # Live polled properties
@@ -94,3 +98,16 @@ class EtcdDatabag:
             return "/media/etcd/data"
         else:
             return etcd_opts['etcd_data_dir']
+
+    def get_bind_address(self):
+        ''' Returns the address that the service binds to. The value is taken
+        from the config parameter 'service_network_interfaces'.
+        If value has been set to 'public' or 'private', the unit public or
+        private address is considered. Otherwise, service is bound to any
+        available network interface'''
+        service_network_iface = config('service_network_interface')
+        if 'private' in service_network_iface:
+            return unit_private_ip()
+        if 'public' in service_network_iface:
+            return unit_public_ip()
+        return '0.0.0.0'
