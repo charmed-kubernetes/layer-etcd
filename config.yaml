@@ -20,3 +20,11 @@ options:
       based on the charm deployment date. You may also set a custom string as
       described in the 'refresh.timer' section here:
         https://forum.snapcraft.io/t/system-options/87
+  service_network_interface:
+    type: string
+    default: ""
+    description: |
+      The interface the service binds to. Valid values are 'public' or 'private'
+      to bind to public or private unit address respectively.
+      If an empty or an invalid value is set, the service binds to all network
+      interfaces.
