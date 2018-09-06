@@ -178,9 +178,8 @@ def follower_config_changed():
 
 
 @when('snap.installed.etcd')
-@when('config.changed.service_network_interface')
-@when_not('etcd.installed')
-def service_network_interface_changed():
+@when('config.changed.bind_to_all_interfaces')
+def bind_to_all_interfaces_changed():
     ''' Config must be updated and service restarted '''
     bag = EtcdDatabag()
     log('Rendering config file for {0}'.format(bag.unit_name))
