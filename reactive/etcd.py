@@ -35,11 +35,13 @@ from etcd_lib import get_ingress_address, get_ingress_addresses
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
+from shutil import copyfile
 
 import os
 import charms.leadership  # noqa
 import socket
 import time
+import traceback
 
 
 # Layer Note:   the @when_not etcd.installed state checks are relating to
@@ -296,6 +298,37 @@ def install_etcd():
     channel = hookenv.config('channel')
     # Grab the snap channel from config
     snap.install('etcd', channel=channel, classic=True)
+
+
+@when('snap.installed.etcd')
+@when_not('etcd.service-restart.configured')
+def add_systemd_restart_always():
+    template = 'templates/service-always-restart.systemd-latest.conf'
+    service = 'snap.etcd.etcd'
+
+    try:
+        # Get the systemd version
+        cmd = ['systemd', '--version']
+        output = check_output(cmd).decode('UTF-8')
+        line = output.splitlines()[0]
+        words = line.split()
+        assert words[0] == 'systemd'
+        systemd_version = int(words[1])
+
+        # Check for old version (for xenial support)
+        if systemd_version < 230:
+            template = 'templates/service-always-restart.systemd-229.conf'
+    except Exception:
+        traceback.print_exc()
+        hookenv.log('Failed to detect systemd version, using latest template',
+                    level='ERROR')
+
+    dest_dir = '/etc/systemd/system/{}.service.d'.format(service)
+    os.makedirs(dest_dir, exist_ok=True)
+    copyfile(template, '{}/always-restart.conf'.format(dest_dir))
+    check_call(['systemctl', 'daemon-reload'])
+    host.service_restart('{}.service'.format(service))
+    set_state('etcd.service-restart.configured')
 
 
 @when('snap.installed.etcd')
