@@ -9,7 +9,7 @@ install:
  - sudo add-apt-repository -y ppa:juju/stable
  - sudo apt-get update
  - sudo apt-get install -y snapd charm-tools
- - sudo snap install charm
+ - sudo snap install charm --classic
 
 script:
  - mkdir -p $HOME/tmp/repo/layer
