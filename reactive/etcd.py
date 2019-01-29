@@ -159,8 +159,8 @@ def leader_config_changed():
         close_open_ports()
         address = get_ingress_address('cluster')
         leader_set({'leader_address':
-                   get_connection_string([address],
-                                         bag.management_port)})
+                    get_connection_string([address],
+                                          bag.management_port)})
         host.service_restart(bag.etcd_daemon)
 
 
@@ -278,7 +278,7 @@ def send_cluster_details(proxy):
 @when_not('etcd.installed')
 def snap_install():
     channel = hookenv.config('channel')
-    snap.install('etcd', channel=channel, classic=True)
+    snap.install('etcd', channel=channel, classic=False)
 
 
 @when('etcd.ssl.placed')
@@ -297,7 +297,7 @@ def install_etcd():
 
     channel = hookenv.config('channel')
     # Grab the snap channel from config
-    snap.install('etcd', channel=channel, classic=True)
+    snap.install('etcd', channel=channel, classic=False)
 
 
 @when('snap.installed.etcd')
@@ -661,7 +661,7 @@ def close_open_ports():
     port = configuration.get('port')
     if previous_port is not None and previous_port != port:
         log('The port changed; closing {0} opening {1}'.format(previous_port,
-            port))
+                                                               port))
         close_port(previous_port)
         open_port(port)
 
@@ -703,5 +703,5 @@ def etcd_version():
                 version = version.split('version')[-1].replace(':', '').strip()
                 return version
         return 'n/a'
-    except: # NOQA
+    except:  # NOQA
         return 'n/a'
