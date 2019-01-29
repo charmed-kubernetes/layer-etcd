@@ -278,7 +278,7 @@ def send_cluster_details(proxy):
 @when_not('etcd.installed')
 def snap_install():
     channel = hookenv.config('channel')
-    snap.install('etcd', channel=channel, classic=True)
+    snap.install('etcd', channel=channel, classic=False)
 
 
 @when('etcd.ssl.placed')
@@ -297,7 +297,7 @@ def install_etcd():
 
     channel = hookenv.config('channel')
     # Grab the snap channel from config
-    snap.install('etcd', channel=channel, classic=True)
+    snap.install('etcd', channel=channel, classic=False)
 
 
 @when('snap.installed.etcd')
