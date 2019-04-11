@@ -54,7 +54,7 @@ import traceback
 # Override the default nagios shortname regex to allow periods, which we
 # need because our bin names contain them (e.g. 'snap.foo.daemon'). The
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
-nrpe.Check.shortname_re = '[\.A-Za-z0-9-_]+$'
+nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
 
 @when('etcd.installed')
