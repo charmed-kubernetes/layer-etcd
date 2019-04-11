@@ -428,6 +428,12 @@ def process_snapd_timer():
     # Get the current snapd refresh timer; we know layer-snap has set this
     # when the 'snap.refresh.set' flag is present.
     timer = snap.get(snapname='core', key='refresh.timer').decode('utf-8')
+    if not timer or timer.isspace():
+        # A subordinate wiped out our value, so we need to force it to be set
+        # again. Luckily, the subordinate should only wipe it out once, on
+        # first install, so this should remain stable afterward.
+        snap.set_refresh_timer(hookenv.config('snapd_refresh'))
+        timer = snap.get(snapname='core', key='refresh.timer').decode('utf-8')
 
     # The first time through, data_changed will be true. Subsequent calls
     # should only update leader data if something changed.
