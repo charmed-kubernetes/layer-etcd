@@ -103,7 +103,6 @@ def missing_relation_notice():
 
 
 @when('certificates.available')
-@when_not('etcd.ssl.placed')
 def prepare_tls_certificates(tls):
     status_set('maintenance', 'Requesting tls certificates.')
     common_name = hookenv.unit_public_ip()
