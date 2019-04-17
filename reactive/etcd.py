@@ -107,7 +107,7 @@ def prepare_tls_certificates(tls):
     status_set('maintenance', 'Requesting tls certificates.')
     common_name = hookenv.unit_public_ip()
     sans = set()
-    sans.add(hookenv.unit_public_ip())
+    sans.add(socket.gethostbyname(hookenv.unit_public_ip()))
     sans.update(get_ingress_addresses('db'))
     sans.update(get_ingress_addresses('cluster'))
     sans.add(socket.gethostname())
