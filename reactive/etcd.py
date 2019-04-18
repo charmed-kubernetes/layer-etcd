@@ -104,7 +104,6 @@ def missing_relation_notice():
 
 @when('certificates.available')
 def prepare_tls_certificates(tls):
-    status_set('maintenance', 'Requesting tls certificates.')
     common_name = hookenv.unit_public_ip()
     sans = set()
     sans.add(hookenv.unit_public_ip())
