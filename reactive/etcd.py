@@ -110,7 +110,7 @@ def prepare_tls_certificates(tls):
     sans.update(get_ingress_addresses('db'))
     sans.update(get_ingress_addresses('cluster'))
     sans.add(socket.gethostname())
-    sans = list(sans)
+    sans = sorted(sans)
     certificate_name = hookenv.local_unit().replace('/', '_')
     tls.request_server_cert(common_name, sans, certificate_name)
 
