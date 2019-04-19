@@ -456,7 +456,7 @@ def set_snapd_timer():
     # Layer-snap will always set a core refresh.timer, which may not be the
     # same as our leader. Gating with 'snap.refresh.set' ensures layer-snap
     # has finished and we are free to set our config to the leader's timer.
-    timer = leader_get('snapd_refresh')
+    timer = leader_get('snapd_refresh') or ''  # None will cause error
     log('setting snapd_refresh timer to: {}'.format(timer))
     snap.set_refresh_timer(timer)
 
