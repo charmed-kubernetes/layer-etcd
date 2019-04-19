@@ -428,14 +428,12 @@ def process_snapd_timer():
     # Get the current snapd refresh timer; we know layer-snap has set this
     # when the 'snap.refresh.set' flag is present.
     timer = snap.get(snapname='core', key='refresh.timer').decode('utf-8').strip()
-    config_timer = hookenv.config('snapd_refresh')
-    if not timer and config_timer:
-        # The core snap timer is empty, yet we have a configured value. This
-        # likely means a subordinate timer reset ours. Try to set it back to
-        # a previously leader-set value, falling back to config if needed.
-        # Luckily, this should only happen once during subordinate install, so
-        # this should remain stable afterward.
-        timer = leader_get('snapd_refresh') or config_timer
+    if not timer:
+        # The core snap timer is empty. This likely means a subordinate timer
+        # reset ours. Try to set it back to a previously leader-set value,
+        # falling back to config if needed. Luckily, this should only happen
+        # during subordinate install, so this should remain stable afterward.
+        timer = leader_get('snapd_refresh') or hookenv.config('snapd_refresh')
         snap.set_refresh_timer(timer)
 
         # Ensure we have the timer known by snapd (it may differ from config).
