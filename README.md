@@ -22,8 +22,8 @@ observation.
 We can deploy a single node with the following commands:
 
 ```shell
-juju deploy easyrsa
-juju deploy etcd
+juju deploy ~containers/easyrsa
+juju deploy ~containers/etcd
 juju add-relation etcd easyrsa
 ```
 And add capacity with:
@@ -47,9 +47,7 @@ Juju.
 Health of the cluster can be checked by running a juju action.
 
 ```shell
-juju action do etcd/0 health
-<return response uuid>
-juju action fetch <uuid>
+juju run-action --wait etcd/0 health
 ```
 
 The health is also reported continuously via `juju status`. During initial
@@ -79,7 +77,7 @@ Client certificates can be obtained by running an action on any of the cluster
 members:
 
 ```shell
-juju run-action etcd/0 package-client-credentials
+juju run-action --wait etcd/0 package-client-credentials
 juju scp etcd/0:etcd_credentials.tar.gz etcd_credentials.tar.gz
 ```
 
@@ -111,7 +109,7 @@ cloud provides to us, which can be listed:
 juju list-storage-pools
 ```
 
-#### AWS Storage example
+### AWS Storage example
 
 To add SSD backed EBS storage from AWS, the following example provisions a
 single 10GB SSD EBS instance and attaches it to the etcd/0 unit.
@@ -120,7 +118,7 @@ single 10GB SSD EBS instance and attaches it to the etcd/0 unit.
 juju add-storage etcd/0 data=ebs-ssd,10G
 ```
 
-#### GCE Storage example
+### GCE Storage example
 
 To add Persistent Disk storage from GCE, the following example
 provisions a single 10GB PD instance and attaches it to the etcd/0 unit.
@@ -129,7 +127,7 @@ provisions a single 10GB PD instance and attaches it to the etcd/0 unit.
 juju add-storage etcd/0 data=gce,10G
 ```
 
-#### Cinder Storage example
+### Cinder Storage example
 
 To add Persistent Disk storage from Open Stack Cinder, the following example
 provisions a single 10GB PD instance and attaches it to the etcd/0 unit.
@@ -159,7 +157,7 @@ juju deploy etcd new-etcd
 
 ```
 juju attach new-etcd snapshot=/path/to/etcd-backup
-juju run-action new-etcd/0 restore
+juju run-action --wait new-etcd/0 restore
 ```
 
 Once the restore action has completed, evaluate the cluster health. If the
@@ -175,12 +173,10 @@ Allows the operator to snapshot a running clusters data for use in cloning,
 backing up, or migrating etcd clusters.
 
 ```
-juju run-action etcd/0 snapshot target=/mnt/etcd-backups
+juju run-action --wait etcd/0 snapshot target=/mnt/etcd-backups
 ```
 
 - **param** target: destination directory to save the resulting snapshot archive.
-
-
 
 # Migrating etcd
 
@@ -190,7 +186,7 @@ Step 1: Snapshot your existing cluster. This is encapsulated in the `snapshot`
 action.
 
 ```
-$ juju run-action etcd/0 snapshot
+$ juju run-action --wait etcd/0 snapshot
 
 Action queued with id: b46d5d6f-5625-4320-8cda-b611c6ae580c
 ```
@@ -229,11 +225,10 @@ Step 4: Re-Initialize the etcd leader with the data by running the `restore`
 action which uses the resource that was attached in step 3.
 
 ```
-juju run-action new-etcd/0 restore
+juju run-action --wait new-etcd/0 restore
 ```
 
 Step 5: Scale and operate as required, verify the data was restored.
-
 
 # Limited egress operations
 
@@ -312,7 +307,7 @@ juju config etcd channel=3.0/stable
 
 # Known Limitations
 
-#### Moving from 2.x to 3.x and beyond
+### Moving from 2.x to 3.x and beyond
 
 The etcd charm relies heavily on the snap package for etcd. In order to properly
 migrate a 2.x series etcd deployment into 3.1 and beyond you will need to follow
@@ -334,8 +329,24 @@ juju config etcd channel=3.1/stable
 You **MUST** perform the 2.3 => 3.0 before moving from 3.0 => 3.1  A migration
 from 2.3 => 3.1 is not supported at this time.
 
+### Multiple snapd refresh timers
 
-#### TLS Defaults Warning (for Trusty etcd charm users)
+The etcd charm exposes a `snapd_refresh` config option that is used to control
+how often snapd checks for updates to installed snaps. By default, this is set
+to `max` which scans for refreshes once per month. If a subordinate charm based
+on layer-snap is related to an etcd principal unit, the refresh timer may be
+inadvertantly changed.
+
+The best practice for deploying multiple layer-snap charms onto a single
+machine is to ensure `snapd_refresh` is consistent among those charms. As an
+example, set an explicit refresh timer for the last Friday of the month with:
+
+```
+juju config etcd snapd_refresh='fri5'
+```
+
+### TLS Defaults Warning (for Trusty etcd charm users)
+
 Additionally, this charm breaks with no backwards compatible/upgrade path at
 the Trusty/Xenial series boundary. Xenial forward will enable TLS by default.
 This is an incompatible break due to the nature of peer relationships, and how
@@ -349,8 +360,7 @@ a single node due to the nature of how replicas work in etcd.
 Any issues with the above process should be filed against the charm layer in
 [github](https://github.com/juju-solutions/layer-etcd).
 
-
-#### Restoring from snapshot on a scaled cluster
+### Restoring from snapshot on a scaled cluster
 
 Restoring from a snapshot on a scaled cluster will result in a broken cluster.
 Etcd performs clustering during unit turn-up, and state is stored in etcd itself.
@@ -358,7 +368,7 @@ During the snapshot restore phase, a new cluster ID is initialized, and peers
 are dropped from the snapshot state to enable snapshot restoration. Please
 follow the migration instructions above in the restore action description.
 
-## Contributors
+# Contact
 
-- Charles Butler &lt;[charles.butler@canonical.com](mailto:charles.butler@canonical.com)&gt;
-- Mathew Bruzek  &lt;[mathew.bruzek@canonical.com](mailto:mathew.bruzek@canonical.com)&gt;
+The `etcd` charm is free and open source software created by the
+~containers team at Canonical.
