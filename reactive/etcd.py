@@ -54,7 +54,7 @@ import traceback
 # Override the default nagios shortname regex to allow periods, which we
 # need because our bin names contain them (e.g. 'snap.foo.daemon'). The
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
-nrpe.Check.shortname_re = '[\.A-Za-z0-9-_]+$'
+nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
 
 @when('etcd.installed')
@@ -425,7 +425,17 @@ def process_snapd_timer():
     (present and future) will refresh near the same time. '''
     # Get the current snapd refresh timer; we know layer-snap has set this
     # when the 'snap.refresh.set' flag is present.
-    timer = snap.get(snapname='core', key='refresh.timer').decode('utf-8')
+    timer = snap.get(snapname='core', key='refresh.timer').decode('utf-8').strip()
+    if not timer:
+        # The core snap timer is empty. This likely means a subordinate timer
+        # reset ours. Try to set it back to a previously leader-set value,
+        # falling back to config if needed. Luckily, this should only happen
+        # during subordinate install, so this should remain stable afterward.
+        timer = leader_get('snapd_refresh') or hookenv.config('snapd_refresh')
+        snap.set_refresh_timer(timer)
+
+        # Ensure we have the timer known by snapd (it may differ from config).
+        timer = snap.get(snapname='core', key='refresh.timer').decode('utf-8').strip()
 
     # The first time through, data_changed will be true. Subsequent calls
     # should only update leader data if something changed.
@@ -444,7 +454,7 @@ def set_snapd_timer():
     # Layer-snap will always set a core refresh.timer, which may not be the
     # same as our leader. Gating with 'snap.refresh.set' ensures layer-snap
     # has finished and we are free to set our config to the leader's timer.
-    timer = leader_get('snapd_refresh')
+    timer = leader_get('snapd_refresh') or ''  # None will cause error
     log('setting snapd_refresh timer to: {}'.format(timer))
     snap.set_refresh_timer(timer)
 
