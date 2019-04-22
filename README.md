@@ -370,5 +370,7 @@ follow the migration instructions above in the restore action description.
 
 # Contact
 
-The `etcd` charm is free and open source software created by the
-~containers team at Canonical.
+The `etcd` charm is free and open source software maintained by the
+[Charmed Kubernetes][cdk-contact] team at Canonical.
+
+[cdk-contact]: https://www.ubuntu.com/kubernetes/docs/get-in-touch
