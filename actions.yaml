@@ -1,5 +1,29 @@
+alarm-disarm:
+  description: |
+    Disarm all alarms.
+alarm-list:
+  description: |
+    List all alarms.
+compact:
+  description: |
+    Compact etcd event history.
+  params:
+    revision:
+      type: string
+      default: ''
+      description: |
+        Revision to compact to. Leave blank to compact to the latest revision.
+    physical:
+      type: boolean
+      default: False
+      description: |
+        Setting to True will cause the compaction process to exit only after
+        all revisions have been physically removed from the database.
+defrag:
+  description: |
+    Defragment the storage of the local etcd member.
 health:
-    description: Call the health of the cluster
+  description: Report the health of the cluster.
 package-client-credentials:
     description: |
      Generate a tarball of the client certificates to connect to the cluster
