@@ -23,6 +23,10 @@ resources:
     type: file
     filename: snapshot.tar.gz
     description: Tarball snapshot of an etcd clusters data.
+  core:
+    type: file
+    filename: core.snap
+    description: Snap package of core
   etcd:
     type: file
     filename: etcd.snap
