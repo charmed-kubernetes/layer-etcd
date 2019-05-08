@@ -276,6 +276,7 @@ def send_cluster_details(proxy):
 @when_not('etcd.installed')
 def snap_install():
     channel = hookenv.config('channel')
+    snap.install('core')
     snap.install('etcd', channel=channel, classic=False)
 
 
