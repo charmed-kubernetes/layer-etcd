@@ -4,6 +4,7 @@ from charms import layer
 
 from charms.layer import snap
 
+from charms.reactive import endpoint_from_flag
 from charms.reactive import when
 from charms.reactive import when_any
 from charms.reactive import when_not
@@ -14,7 +15,6 @@ from charms.reactive.helpers import data_changed
 
 from charms.templating.jinja2 import render
 
-from charmhelpers.core import unitdata
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
@@ -57,7 +57,6 @@ import traceback
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
 nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
-kv = unitdata.kv()
 
 @when('etcd.installed')
 def snap_upgrade_notice():
@@ -105,14 +104,6 @@ def missing_relation_notice():
 
 
 @when('certificates.available')
-@when('cluster.joined')
-def refresh_certificates(cluster, tls):
-    extra_sans = cluster.get_db_ingress_addresses()
-    kv.set('extra-sans', extra_sans)
-    prepare_tls_certificates(tls)
-
-
-@when('certificates.available')
 def prepare_tls_certificates(tls):
     common_name = hookenv.unit_public_ip()
     sans = set()
@@ -120,9 +111,13 @@ def prepare_tls_certificates(tls):
     sans.update(get_ingress_addresses('db'))
     sans.update(get_ingress_addresses('cluster'))
     sans.add(socket.gethostname())
-    if kv.get('extra-sans'):
-        for ip in kv.get('extra-sans'):
+
+    # add cluster peers as alt names when present
+    cluster = endpoint_from_flag('cluster.joined')
+    if cluster:
+        for ip in cluster.get_db_ingress_addresses():
             sans.add(ip)
+
     sans = sorted(sans)
     certificate_name = hookenv.local_unit().replace('/', '_')
     tls.request_server_cert(common_name, sans, certificate_name)
