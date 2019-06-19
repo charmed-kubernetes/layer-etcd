@@ -4,6 +4,7 @@ from charms import layer
 
 from charms.layer import snap
 
+from charms.reactive import endpoint_from_flag
 from charms.reactive import when
 from charms.reactive import when_any
 from charms.reactive import when_not
@@ -110,6 +111,13 @@ def prepare_tls_certificates(tls):
     sans.update(get_ingress_addresses('db'))
     sans.update(get_ingress_addresses('cluster'))
     sans.add(socket.gethostname())
+
+    # add cluster peers as alt names when present
+    cluster = endpoint_from_flag('cluster.joined')
+    if cluster:
+        for ip in cluster.get_db_ingress_addresses():
+            sans.add(ip)
+
     sans = sorted(sans)
     certificate_name = hookenv.local_unit().replace('/', '_')
     tls.request_server_cert(common_name, sans, certificate_name)
