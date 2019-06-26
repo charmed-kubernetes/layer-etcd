@@ -85,10 +85,10 @@ def is_v3_backup():
 
 def restore_v3_backup():
     ''' Apply a v3 backup '''
-    cmd = "mkdir -p /var/tmp/restore-v3"
+    cmd = "mkdir -p /root/tmp/restore-v3"
     check_call(split(cmd))
 
-    cmd = "tar xvf {0} -C /var/tmp/restore-v3".format(SNAPSHOT_ARCHIVE)
+    cmd = "tar xvf {0} -C /root/tmp/restore-v3".format(SNAPSHOT_ARCHIVE)
     check_call(split(cmd))
 
     configfile = open('/var/snap/etcd/common/etcd.conf.yml', "r")
@@ -96,8 +96,8 @@ def restore_v3_backup():
     # Use the insecure 4001 port we have open in our deployment
     environ = dict(os.environ, ETCDCTL_API="3")
     cmd = "/snap/bin/etcdctl --endpoints=http://localhost:4001 snapshot " \
-          "restore /var/tmp/restore-v3/db --skip-hash-check " \
-          "--data-dir='/var/tmp/restore-v3/etcd' " \
+          "restore /root/tmp/restore-v3/db --skip-hash-check " \
+          "--data-dir='/root/tmp/restore-v3/etcd' " \
           "--initial-cluster='{}' --initial-cluster-token='{}' " \
           "--initial-advertise-peer-urls='{}' --name='{}'"
 
@@ -125,11 +125,11 @@ def restore_v3_backup():
     cmd = "rm -rf {}/member".format(config['data-dir'])
     check_call(split(cmd))
 
-    cmd = "cp -r /var/tmp/restore-v3/etcd/member {}".format(config['data-dir'])
+    cmd = "cp -r /root/tmp/restore-v3/etcd/member {}".format(config['data-dir'])
     check_call(split(cmd))
 
     # Clean up
-    cmd = "rm -rf /var/tmp/restore-v3"
+    cmd = "rm -rf /root/tmp/restore-v3"
     check_call(split(cmd))
 
 
