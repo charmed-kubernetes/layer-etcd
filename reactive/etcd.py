@@ -495,7 +495,14 @@ def tls_update():
     ''' Handle changes to the TLS data by ensuring that the service is
         restarted.
     '''
+    # ensure config is updated with new certs and service restarted
+    bag = EtcdDatabag()
+    render_config(bag)
+    host.service_restart(bag.etcd_daemon)
+
+    # ensure that certs are re-echoed to the db relations
     remove_state('etcd.ssl.placed')
+
     remove_state('tls_client.ca.written')
     remove_state('tls_client.server.certificate.written')
     remove_state('tls_client.client.certificate.written')
