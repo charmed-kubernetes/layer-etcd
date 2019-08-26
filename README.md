@@ -173,10 +173,16 @@ Allows the operator to snapshot a running clusters data for use in cloning,
 backing up, or migrating etcd clusters.
 
 ```
-juju run-action --wait etcd/0 snapshot target=/mnt/etcd-backups
+juju run-action --wait etcd/0 snapshot target=/mnt/etcd-backups keys-version=v3
 ```
 
 - **param** target: destination directory to save the resulting snapshot archive.
+- **param** keys-version: etcd keys-version to snapshot: `v3` and `v2` are valid options here
+
+*NOTE:* etcd supports multiple key versions (presently v2 and v3) and data for each
+version is separate, so you must specify which set of data you wish to snapshot.
+If your etcd is deployed for Kubernetes versions post 1.10, data will be stored in
+v3 format, if you are snapshotting 1.09 or older, you may want `keys-version=v2`
 
 # Migrating etcd
 
@@ -186,7 +192,7 @@ Step 1: Snapshot your existing cluster. This is encapsulated in the `snapshot`
 action.
 
 ```
-$ juju run-action --wait etcd/0 snapshot
+$ juju run-action --wait etcd/0 snapshot keys-version=v3
 
 Action queued with id: b46d5d6f-5625-4320-8cda-b611c6ae580c
 ```
