@@ -73,7 +73,7 @@ class EtcdDatabag:
         token = leader_get('token')
         if not token and is_leader():
             token = self.id_generator()
-            leader_set({'cluster-token': token})
+            leader_set({'token': token})
         return token
 
     def id_generator(self, size=6):
