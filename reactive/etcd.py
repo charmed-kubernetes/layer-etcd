@@ -43,6 +43,7 @@ import charms.leadership  # noqa
 import socket
 import time
 import traceback
+import yaml
 
 
 # Layer Note:   the @when_not etcd.installed state checks are relating to
@@ -414,8 +415,7 @@ def initialize_new_leader():
     open_port(bag.port)
     leader_connection_string = get_connection_string([address],
                                                      bag.port)
-    leader_set({'token': bag.token,
-                'leader_address': leader_connection_string,
+    leader_set({'leader_address': leader_connection_string,
                 'cluster': bag.cluster})
 
     # set registered state since if we ever become a follower, we will not need
@@ -714,6 +714,8 @@ def render_config(bag=None):
     if not bag:
         bag = EtcdDatabag()
 
+    move_etcd_data_to_standard_location()
+
     # probe for 2.x compatibility
     if etcd_version().startswith('2.'):
         conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
@@ -743,3 +745,31 @@ def etcd_version():
         return 'n/a'
     except: # NOQA
         return 'n/a'
+
+
+def move_etcd_data_to_standard_location():
+    ''' Moves etcd data to the standard location if it's not already located
+    there. This is necessary when generating new etcd config after etcd has
+    been upgraded from version 2.3 to 3.x.
+    '''
+    bag = EtcdDatabag()
+    conf_path = bag.etcd_conf_dir + '/etcd.conf.yml'
+    if not os.path.exists(conf_path):
+        return
+    with open(conf_path) as f:
+        conf = yaml.safe_load(f)
+    data_dir = conf['data-dir']
+    desired_data_dir = bag.etcd_data_dir
+    if data_dir != desired_data_dir:
+        log('Moving etcd data from %s to %s' % (data_dir, desired_data_dir))
+        host.service_stop('snap.etcd.etcd')
+        for filename in os.listdir(data_dir):
+            os.rename(
+                data_dir + '/' + filename,
+                desired_data_dir + '/' + filename
+            )
+        os.rmdir(data_dir)
+        conf['data-dir'] = desired_data_dir
+        with open(conf_path, 'w') as f:
+            yaml.dump(conf, f)
+        host.service_start('snap.etcd.etcd')

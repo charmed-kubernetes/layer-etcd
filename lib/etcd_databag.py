@@ -2,7 +2,7 @@ from charms import layer
 from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import is_leader
-from charmhelpers.core.hookenv import leader_get
+from charmhelpers.core.hookenv import leader_get, leader_set
 from charmhelpers.core import unitdata
 from charms.reactive import is_state
 from etcd_lib import get_ingress_address
@@ -70,14 +70,11 @@ class EtcdDatabag:
 
     def cluster_token(self):
         ''' Getter to return the unique cluster token. '''
-        if not is_leader():
-            return leader_get('token')
-
-        if not self.db.get('cluster-token'):
+        token = leader_get('token')
+        if not token and is_leader():
             token = self.id_generator()
-            self.db.set('cluster-token', token)
-            return token
-        return self.db.get('cluster-token')
+            leader_set({'token': token})
+        return token
 
     def id_generator(self, size=6):
         ''' Return a random 6 character string for use in cluster init.
