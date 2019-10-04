@@ -5,12 +5,15 @@ includes:
   - 'layer:leadership'
   - 'layer:nagios'
   - 'layer:tls-client'
-  - 'layer:leadership'
   - 'layer:snap'
   - 'layer:cdk-service-kicker'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
   - 'interface:nrpe-external-master'
+exclude:
+  - .coverage
+  - .tox
+  - __pycache__
 defines:
   etcd_conf_dir:
     description: Path to render etcd configuration

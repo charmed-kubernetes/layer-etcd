@@ -17,15 +17,13 @@ upgrade: build
 force: build
 	juju upgrade-charm etcd --path=${JUJU_REPOSITORY}/builds/etcd --force-units
 
-test-convoluted:
-	/snap/bin/charm build -o ${HOME}/tmp -r --no-local-layers -l DEBUG
-	tox -c ${HOME}/tmp/builds/etcd/tox.ini
-	rm -rf ${HOME}/tmp
-
 clean:
-	rm -rf .tox
-	rm -f .coverage
-	rm -rf ./tmp
+	@echo "Cleaning files"
+	@rm -f .coverage .unit-state.db
+	@find . -name "*.pyc" -type f -exec rm -f '{}' \;
+	@find . -name "__pycache__" -type d -prune -exec rm -rf '{}' \;
+	@rm -rf ./.tox
+	@rm -rf ./.pytest_cache
 
 clean-all: clean
 	rm -rf ${JUJU_REPOSITORY}/builds/etcd
