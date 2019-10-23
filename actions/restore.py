@@ -92,7 +92,7 @@ def restore_v3_backup():
     check_call(split(cmd))
 
     configfile = open('/var/snap/etcd/common/etcd.conf.yml', "r")
-    config = yaml.load(configfile)
+    config = yaml.safe_load(configfile)
     # Use the insecure 4001 port we have open in our deployment
     environ = dict(os.environ, ETCDCTL_API="3")
     cmd = "/snap/bin/etcdctl --endpoints=http://localhost:4001 snapshot " \
@@ -101,7 +101,7 @@ def restore_v3_backup():
           "--initial-cluster='{}' --initial-cluster-token='{}' " \
           "--initial-advertise-peer-urls='{}' --name='{}'"
 
-    if 'initial-cluster' in config:
+    if 'initial-cluster' in config and config['initial-cluster']:
         # configuration contains initilization params
         cmd = cmd.format(config['initial-cluster'],
                          config['initial-cluster-token'],
