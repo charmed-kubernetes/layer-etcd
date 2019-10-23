@@ -1,6 +1,7 @@
 repo: https://github.com/juju-solutions/layer-etcd.git
 includes:
   - 'layer:basic'
+  - 'layer:cis-benchmark'
   - 'layer:debug'
   - 'layer:leadership'
   - 'layer:nagios'
