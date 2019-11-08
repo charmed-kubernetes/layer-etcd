@@ -150,9 +150,17 @@ class EtcdCtl:
         ca_path = opts['ca_certificate_path']
         crt_path = opts['server_certificate_path']
         key_path = opts['server_key_path']
+
+        # etcd 2.x.x
         os.environ['ETCDCTL_CA_FILE'] = ca_path
         os.environ['ETCDCTL_CERT_FILE'] = crt_path
         os.environ['ETCDCTL_KEY_FILE'] = key_path
+
+        # etcd 3.x.x
+        os.environ['ETCDCTL_CACERT'] = ca_path
+        os.environ['ETCDCTL_CERT'] = crt_path
+        os.environ['ETCDCTL_KEY'] = key_path
+
         try:
             return check_output(split(command)).decode('ascii')
         except CalledProcessError as e:

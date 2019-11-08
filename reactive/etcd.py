@@ -518,9 +518,19 @@ def render_default_user_ssl_exports():
     client_crt = opts['client_certificate_path']
     client_key = opts['client_key_path']
 
-    evars = ['export ETCDCTL_KEY_FILE={}\n'.format(client_key),
-             'export ETCDCTL_CERT_FILE={}\n'.format(client_crt),
-             'export ETCDCTL_CA_FILE={}\n'.format(ca_path)]
+    # etcd 2.x.x
+    evars = [
+        'export ETCDCTL_KEY_FILE={}\n'.format(client_key),
+        'export ETCDCTL_CERT_FILE={}\n'.format(client_crt),
+        'export ETCDCTL_CA_FILE={}\n'.format(ca_path)
+    ]
+
+    # etcd 3.x.x
+    evars.extend([
+        'export ETCDCTL_KEY={}\n'.format(client_key),
+        'export ETCDCTL_CERT={}\n'.format(client_crt),
+        'export ETCDCTL_CACERT={}\n'.format(ca_path)
+    ])
 
     with open('/home/ubuntu/.bash_aliases', 'w') as fp:
         fp.writelines(evars)

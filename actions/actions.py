@@ -39,10 +39,17 @@ def etcdctl(cmd, etcdctl_api='3', endpoints=':4001', **kw):
     '''
     opts = layer.options('tls-client')
 
+    # etcd 2.x.x
     env = os.environ.copy()
     env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
     env['ETCDCTL_CERT_FILE'] = opts['server_certificate_path']
     env['ETCDCTL_KEY_FILE'] = opts['server_key_path']
+
+    # etcd 3.x.x
+    env['ETCDCTL_CACERT'] = opts['ca_certificate_path']
+    env['ETCDCTL_CERT'] = opts['server_certificate_path']
+    env['ETCDCTL_KEY'] = opts['server_key_path']
+
     if etcdctl_api:
         env['ETCDCTL_API'] = etcdctl_api
 
