@@ -12,7 +12,8 @@ from charmhelpers.core.hookenv import (
     action_get,
     action_set,
     action_fail,
-    action_name
+    action_name,
+    leader_get
 )
 
 
@@ -33,29 +34,34 @@ def etcdctl_path():
     return 'etcdctl'
 
 
-def etcdctl(cmd, etcdctl_api='3', endpoints=':4001', **kw):
+def etcdctl(cmd, etcdctl_api='3', endpoints=None, **kw):
     '''Call etcdctl with ``cmd`` as the command-line args.
 
     '''
     opts = layer.options('tls-client')
-
-    # etcd 2.x.x
     env = os.environ.copy()
-    env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
-    env['ETCDCTL_CERT_FILE'] = opts['server_certificate_path']
-    env['ETCDCTL_KEY_FILE'] = opts['server_key_path']
-
-    # etcd 3.x.x
-    env['ETCDCTL_CACERT'] = opts['ca_certificate_path']
-    env['ETCDCTL_CERT'] = opts['server_certificate_path']
-    env['ETCDCTL_KEY'] = opts['server_key_path']
 
     if etcdctl_api:
         env['ETCDCTL_API'] = etcdctl_api
 
     etcdctl_cmd = etcdctl_path()
-    if endpoints:
+
+    if endpoints is None:
+        leader_address = leader_get('leader_address')
+        endpoints = leader_address
+
+    if endpoints is not False:
         etcdctl_cmd += ' --endpoints={}'.format(endpoints)
+
+        major, minor, _ = etcdctl_version().split('.')
+        if int(major) >= 3 and int(minor) >= 3:
+            env['ETCDCTL_CACERT'] = opts['ca_certificate_path']
+            env['ETCDCTL_CERT'] = opts['server_certificate_path']
+            env['ETCDCTL_KEY'] = opts['server_key_path']
+        else:
+            env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
+            env['ETCDCTL_CERT_FILE'] = opts['server_certificate_path']
+            env['ETCDCTL_KEY_FILE'] = opts['server_key_path']
 
     args = shlex.split(etcdctl_cmd) + shlex.split(cmd)
     return subprocess.check_output(
@@ -66,7 +72,7 @@ def etcdctl_version():
     '''Return etcdctl version.
 
     '''
-    output = etcdctl("--version", etcdctl_api=None, endpoints=None)
+    output = etcdctl("--version", etcdctl_api=None, endpoints=False)
     first_line = output.split('\n')[0]
     version = first_line.split(' ')[-1]
     return version.strip()
