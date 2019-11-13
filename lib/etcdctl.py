@@ -159,10 +159,9 @@ class EtcdCtl:
                 #os.environ['ETCDCTL_CERT'] = crt_path
                 #os.environ['ETCDCTL_KEY'] = key_path
 
-                # Currently, when either endpoint or api
-                # is blank, etcdctl seems to fallback on
-                # the old vars, which seems to always be
-                # the case here.  Seems broken af to me.
+                # Currently, this method doesn't use
+                # ETCDCTL_API=3, so I'll leave the
+                # above in place in case we switch.
                 os.environ['ETCDCTL_CA_FILE'] = ca_path
                 os.environ['ETCDCTL_CERT_FILE'] = crt_path
                 os.environ['ETCDCTL_KEY_FILE'] = key_path
