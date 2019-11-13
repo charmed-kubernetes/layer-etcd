@@ -46,22 +46,23 @@ def etcdctl(cmd, etcdctl_api='3', endpoints=None, **kw):
 
     etcdctl_cmd = etcdctl_path()
 
-    if endpoints is None:
-        leader_address = leader_get('leader_address')
-        endpoints = leader_address
-
     if endpoints is not False:
-        etcdctl_cmd += ' --endpoints={}'.format(endpoints)
-
         major, minor, _ = etcdctl_version().split('.')
         if int(major) >= 3 and int(minor) >= 3:
             env['ETCDCTL_CACERT'] = opts['ca_certificate_path']
             env['ETCDCTL_CERT'] = opts['server_certificate_path']
             env['ETCDCTL_KEY'] = opts['server_key_path']
+            if endpoints is None:
+                leader_address = leader_get('leader_address')
+                endpoints = leader_address
+                etcdctl_cmd += ' --endpoints={}'.format(endpoints)
         else:
             env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
             env['ETCDCTL_CERT_FILE'] = opts['server_certificate_path']
             env['ETCDCTL_KEY_FILE'] = opts['server_key_path']
+            if endpoints is None:
+                endpoints = ':4001'
+                etcdctl_cmd += ' --endpoints={}'.format(endpoints)
 
     args = shlex.split(etcdctl_cmd) + shlex.split(cmd)
     return subprocess.check_output(
