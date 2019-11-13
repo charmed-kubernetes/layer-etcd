@@ -155,9 +155,17 @@ class EtcdCtl:
             major, minor, _ = self.version().split('.')
 
             if int(major) >= 3 and int(minor) >= 3:
-                os.environ['ETCDCTL_CACERT'] = ca_path
-                os.environ['ETCDCTL_CERT'] = crt_path
-                os.environ['ETCDCTL_KEY'] = key_path
+                #os.environ['ETCDCTL_CACERT'] = ca_path
+                #os.environ['ETCDCTL_CERT'] = crt_path
+                #os.environ['ETCDCTL_KEY'] = key_path
+
+                # Currently, when either endpoint or api
+                # is blank, etcdctl seems to fallback on
+                # the old vars, which seems to always be
+                # the case here.  Seems broken af to me.
+                os.environ['ETCDCTL_CA_FILE'] = ca_path
+                os.environ['ETCDCTL_CERT_FILE'] = crt_path
+                os.environ['ETCDCTL_KEY_FILE'] = key_path
             else:
                 os.environ['ETCDCTL_CA_FILE'] = ca_path
                 os.environ['ETCDCTL_CERT_FILE'] = crt_path
