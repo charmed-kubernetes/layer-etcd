@@ -287,6 +287,7 @@ def snap_install():
     channel = hookenv.config('channel')
     snap.install('core')
     snap.install('etcd', channel=channel, classic=False)
+    remove_state('etcd.pillowmints')
 
 
 @when('etcd.ssl.placed')

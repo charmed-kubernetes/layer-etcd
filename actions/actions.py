@@ -12,8 +12,7 @@ from charmhelpers.core.hookenv import (
     action_get,
     action_set,
     action_fail,
-    action_name,
-    leader_get
+    action_name
 )
 
 
@@ -53,8 +52,7 @@ def etcdctl(cmd, etcdctl_api='3', endpoints=None, **kw):
             env['ETCDCTL_CERT'] = opts['server_certificate_path']
             env['ETCDCTL_KEY'] = opts['server_key_path']
             if endpoints is None:
-                leader_address = leader_get('leader_address')
-                endpoints = leader_address
+                endpoints = 'http://127.0.0.1:4001'
                 etcdctl_cmd += ' --endpoints={}'.format(endpoints)
         else:
             env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
