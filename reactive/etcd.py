@@ -128,8 +128,8 @@ def prepare_tls_certificates(tls):
 def remove_states():
     # stale state cleanup (pre rev6)
     remove_state('etcd.tls.secured')
-
     remove_state('etcd.ssl.placed')
+    remove_state('etcd.pillowmints')
 
 
 @when('snap.installed.etcd')
