@@ -155,9 +155,9 @@ class EtcdCtl:
             major, minor, _ = self.version().split('.')
 
             if int(major) >= 3 and int(minor) >= 3:
-                #os.environ['ETCDCTL_CACERT'] = ca_path
-                #os.environ['ETCDCTL_CERT'] = crt_path
-                #os.environ['ETCDCTL_KEY'] = key_path
+                # os.environ['ETCDCTL_CACERT'] = ca_path
+                # os.environ['ETCDCTL_CERT'] = crt_path
+                # os.environ['ETCDCTL_KEY'] = key_path
 
                 # Currently, this method doesn't use
                 # ETCDCTL_API=3, so I'll leave the
