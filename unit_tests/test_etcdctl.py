@@ -1,4 +1,5 @@
 import pytest
+import os
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +8,7 @@ sys.modules['charms'] = charms
 ch = MagicMock()
 sys.modules['charmhelpers.core.hookenv'] = ch.core.hookenv
 
-from etcdctl import EtcdCtl  # noqa
+from etcdctl import EtcdCtl, etcdctl_command  # noqa
 
 
 class TestEtcdCtl:
@@ -72,3 +73,14 @@ class TestEtcdCtl:
             comock.return_value = etcdctl_3_version
             ver = etcdctl.version()
             assert(ver == '3.0.17')
+
+    def test_etcdctl_command(self):
+        ''' Validate sane results from etcdctl_command '''
+        assert(isinstance(etcdctl_command(), str))
+
+    def test_etcdctl_environment_with_version(self, etcdctl):
+        ''' Validate that environment gets set correctly
+        spoiler alert; it shouldn't be set when passing --version '''
+        with patch.dict('os.environ', {'ETCDCTL_CA_FILE': 'Untouched'}):
+            etcdctl.run('/bin/true --version')
+            assert(os.environ.get('ETCDCTL_CA_FILE') == 'Untouched')

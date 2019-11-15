@@ -33,22 +33,34 @@ def etcdctl_path():
     return 'etcdctl'
 
 
-def etcdctl(cmd, etcdctl_api='3', endpoints=':4001', **kw):
+def etcdctl(cmd, etcdctl_api='3', endpoints=None, **kw):
     '''Call etcdctl with ``cmd`` as the command-line args.
 
     '''
     opts = layer.options('tls-client')
-
     env = os.environ.copy()
-    env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
-    env['ETCDCTL_CERT_FILE'] = opts['server_certificate_path']
-    env['ETCDCTL_KEY_FILE'] = opts['server_key_path']
+
     if etcdctl_api:
         env['ETCDCTL_API'] = etcdctl_api
 
     etcdctl_cmd = etcdctl_path()
-    if endpoints:
-        etcdctl_cmd += ' --endpoints={}'.format(endpoints)
+
+    if endpoints is not False:
+        major, minor, _ = etcdctl_version().split('.')
+        if int(major) >= 3 and int(minor) >= 3:
+            env['ETCDCTL_CACERT'] = opts['ca_certificate_path']
+            env['ETCDCTL_CERT'] = opts['server_certificate_path']
+            env['ETCDCTL_KEY'] = opts['server_key_path']
+            if endpoints is None:
+                endpoints = 'http://127.0.0.1:4001'
+                etcdctl_cmd += ' --endpoints={}'.format(endpoints)
+        else:
+            env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
+            env['ETCDCTL_CERT_FILE'] = opts['server_certificate_path']
+            env['ETCDCTL_KEY_FILE'] = opts['server_key_path']
+            if endpoints is None:
+                endpoints = ':4001'
+                etcdctl_cmd += ' --endpoints={}'.format(endpoints)
 
     args = shlex.split(etcdctl_cmd) + shlex.split(cmd)
     return subprocess.check_output(
@@ -59,7 +71,7 @@ def etcdctl_version():
     '''Return etcdctl version.
 
     '''
-    output = etcdctl("--version", etcdctl_api=None, endpoints=None)
+    output = etcdctl("--version", etcdctl_api=None, endpoints=False)
     first_line = output.split('\n')[0]
     version = first_line.split(' ')[-1]
     return version.strip()

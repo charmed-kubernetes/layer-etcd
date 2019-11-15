@@ -150,9 +150,26 @@ class EtcdCtl:
         ca_path = opts['ca_certificate_path']
         crt_path = opts['server_certificate_path']
         key_path = opts['server_key_path']
-        os.environ['ETCDCTL_CA_FILE'] = ca_path
-        os.environ['ETCDCTL_CERT_FILE'] = crt_path
-        os.environ['ETCDCTL_KEY_FILE'] = key_path
+
+        if '--version' not in command:
+            major, minor, _ = self.version().split('.')
+
+            if int(major) >= 3 and int(minor) >= 3:
+                # os.environ['ETCDCTL_CACERT'] = ca_path
+                # os.environ['ETCDCTL_CERT'] = crt_path
+                # os.environ['ETCDCTL_KEY'] = key_path
+
+                # Currently, this method doesn't use
+                # ETCDCTL_API=3, so I'll leave the
+                # above in place in case we switch.
+                os.environ['ETCDCTL_CA_FILE'] = ca_path
+                os.environ['ETCDCTL_CERT_FILE'] = crt_path
+                os.environ['ETCDCTL_KEY_FILE'] = key_path
+            else:
+                os.environ['ETCDCTL_CA_FILE'] = ca_path
+                os.environ['ETCDCTL_CERT_FILE'] = crt_path
+                os.environ['ETCDCTL_KEY_FILE'] = key_path
+
         try:
             return check_output(split(command)).decode('ascii')
         except CalledProcessError as e:

@@ -62,7 +62,10 @@ class TestDeployment(unittest.TestCase):
 
         certs = "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key " \
                 "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt " \
-                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt"
+                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt " \
+                "ETCDCTL_KEY=/var/snap/etcd/common/client.key " \
+                "ETCDCTL_CERT=/var/snap/etcd/common/client.crt " \
+                "ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt"
 
         for unit in self.etcd:
             cmd = '{} /snap/bin/etcdctl cluster-health'.format(certs)
@@ -79,7 +82,10 @@ class TestDeployment(unittest.TestCase):
         # layer.yaml change, this will need to change.
         certs = "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key " \
                 "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt " \
-                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt"
+                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt " \
+                "ETCDCTL_KEY=/var/snap/etcd/common/client.key " \
+                "ETCDCTL_CERT=/var/snap/etcd/common/client.crt " \
+                "ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt"
 
         # format the command, and execute on the leader
         cmd = '{} etcdctl member list'.format(certs)

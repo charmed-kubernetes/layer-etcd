@@ -85,6 +85,8 @@ This will place the client certificates in `pwd`. If you're keen on using
 etcdctl outside of the cluster machines,  you'll need to expose the charm,
 and export some environment variables to consume the client credentials.
 
+If you are using etcd <=3.2.x:
+
 ```shell
 juju expose etcd
 export ETCDCTL_KEY_FILE=$(pwd)/client.key
@@ -93,6 +95,19 @@ export ETCDCTL_CA_FILE=$(pwd)/ca.crt
 export ETCDCTL_ENDPOINT=https://{ip of etcd host}:2379
 etcdctl member list
 ```
+
+Or if you're using etcd >=3.3.x:
+
+```shell
+juju expose etcd
+export ETCDCTL_KEY=$(pwd)/client.key
+export ETCDCTL_CERT=$(pwd)/client.crt
+export ETCDCTL_CACERT=$(pwd)/ca.crt
+export ETCDCTL_ENDPOINT=https://{ip of etcd host}:2379
+etcdctl member list
+```
+
+If in doubt, you can always export all the env vars from both.
 
 # Persistent Storage
 

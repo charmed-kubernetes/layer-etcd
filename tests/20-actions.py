@@ -91,7 +91,10 @@ class TestActions(unittest.TestCase):
         """
         certs = "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key " \
                 "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt " \
-                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt"
+                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt " \
+                "ETCDCTL_KEY=/var/snap/etcd/common/client.key " \
+                "ETCDCTL_CERT=/var/snap/etcd/common/client.crt " \
+                "ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt"
 
         cmd = '{} ETCDCTL_API=2 /snap/bin/etcdctl set /etcd2key etcd2value'.format(certs)
         self.etcd[0].run(cmd)
@@ -110,7 +113,10 @@ class TestActions(unittest.TestCase):
         '''
         certs = "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key " \
                 "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt " \
-                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt"
+                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt " \
+                "ETCDCTL_KEY=/var/snap/etcd/common/client.key " \
+                "ETCDCTL_CERT=/var/snap/etcd/common/client.crt " \
+                "ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt"
 
         if version == 'v2':
             cmd = '{} ETCDCTL_API=2 /snap/bin/etcdctl ls'.format(certs)
@@ -130,7 +136,10 @@ class TestActions(unittest.TestCase):
         '''
         certs = "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key " \
                 "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt " \
-                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt"
+                "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt " \
+                "ETCDCTL_KEY=/var/snap/etcd/common/client.key " \
+                "ETCDCTL_CERT=/var/snap/etcd/common/client.crt " \
+                "ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt"
 
         cmd = '{} ETCDCTL_API=2 /snap/bin/etcdctl rm /etcd2key'.format(certs)
         self.etcd[0].run(cmd)
