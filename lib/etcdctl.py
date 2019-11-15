@@ -66,7 +66,7 @@ class EtcdCtl:
         '''
 
         if leader_address:
-            cmd = "{0} --endpoint {1} member remove {2}"
+            cmd = "{0} --endpoints {1} member remove {2}"
             command = cmd.format(etcdctl_command(), leader_address, unit_id)
         else:
             cmd = "{0} member remove {1}"
@@ -81,8 +81,8 @@ class EtcdCtl:
 
         members = {}
         if leader_address:
-            cmd = "{0} --endpoint {1} member list".format(etcdctl_command(),
-                                                          leader_address)
+            cmd = "{} --endpoints {} member list".format(etcdctl_command(),
+                                                         leader_address)
             out = self.run(cmd)
         else:
             out = self.run("{} member list".format(etcdctl_command()))
@@ -146,47 +146,48 @@ class EtcdCtl:
     def run(self, command):
         ''' Wrapper to subprocess calling output. This is a convenience
         method to clean up the calls to subprocess and append TLS data'''
+        env = {}
         opts = layer.options('tls-client')
         ca_path = opts['ca_certificate_path']
         crt_path = opts['server_certificate_path']
         key_path = opts['server_key_path']
 
-        if '--version' not in command:
-            major, minor, _ = self.version().split('.')
+        major, _, _ = self.version().split('.')
 
-            if int(major) >= 3 and int(minor) >= 3:
-                # os.environ['ETCDCTL_CACERT'] = ca_path
-                # os.environ['ETCDCTL_CERT'] = crt_path
-                # os.environ['ETCDCTL_KEY'] = key_path
-
-                # Currently, this method doesn't use
-                # ETCDCTL_API=3, so I'll leave the
-                # above in place in case we switch.
-                os.environ['ETCDCTL_CA_FILE'] = ca_path
-                os.environ['ETCDCTL_CERT_FILE'] = crt_path
-                os.environ['ETCDCTL_KEY_FILE'] = key_path
-            else:
-                os.environ['ETCDCTL_CA_FILE'] = ca_path
-                os.environ['ETCDCTL_CERT_FILE'] = crt_path
-                os.environ['ETCDCTL_KEY_FILE'] = key_path
+        if int(major) >= 3:
+            env['ETCDCTL_API'] = '3'
+            env['ETCDCTL_CACERT'] = ca_path
+            env['ETCDCTL_CERT'] = crt_path
+            env['ETCDCTL_KEY'] = key_path
+        else:
+            env['ETCDCTL_API'] = '2'
+            env['ETCDCTL_CA_FILE'] = ca_path
+            env['ETCDCTL_CERT_FILE'] = crt_path
+            env['ETCDCTL_KEY_FILE'] = key_path
 
         try:
-            return check_output(split(command)).decode('ascii')
+            return check_output(
+                split(command),
+                env=env
+            ).decode('ascii')
         except CalledProcessError as e:
             log(e.output)
             raise EtcdCtl.CommandFailed() from e
 
     def version(self):
         ''' Return the version of etcdctl '''
-        version = ''
-        out = self.run('{} --version'.format(etcdctl_command()))
+        out = check_output(
+            [etcdctl_command(), 'version'],
+            env={'ETCDCTL_API': '3'}
+        ).decode('utf-8')
 
-        for line in out.split('\n'):
-            if 'etcdctl' in line:
-                # Note: version 2 does not contain any : so split on version
-                # and handle etcd 3+ output accordingly.
-                version = line.split('version')[-1].replace(':', '').strip()
-        return version
+        if out == "No help topic for 'version'\n":
+            # Probably on etcd2
+            out = check_output(
+                [etcdctl_command(), '--version']
+            ).decode('utf-8')
+
+        return out.split('\n')[0].split()[2]
 
 
 def get_connection_string(members, port, protocol='https'):

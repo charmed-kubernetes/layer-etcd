@@ -743,9 +743,12 @@ def render_config(bag=None):
 
 def etcd_version():
     ''' This method surfaces the version from etcdctl '''
-    cmd = ['/snap/bin/etcd.etcdctl', '--version']
+    cmd = ['/snap/bin/etcd.etcdctl', 'version']
     try:
-        raw_output = check_output(cmd)
+        raw_output = check_output(
+            cmd,
+            env={'ETCDCTL_API': '3'}
+        )
         lines = raw_output.split(b'\n')
         for line in lines:
             if b'etcdctl version' in line:
