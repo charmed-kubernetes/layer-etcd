@@ -64,15 +64,7 @@ class EtcdCtl:
         @params leader_address - The endpoint to communicate with the leader in
         the event of self deregistration.
         '''
-
-        if leader_address:
-            cmd = "{0} --endpoints {1} member remove {2}"
-            command = cmd.format(etcdctl_command(), leader_address, unit_id)
-        else:
-            cmd = "{0} member remove {1}"
-            command = cmd.format(etcdctl_command(), unit_id)
-
-        return self.run(command)
+        return self.run(['member', 'remove', unit_id], endpoints=leader_address)
 
     def member_list(self, leader_address=None):
         ''' Returns the output from `etcdctl member list` as a python dict
@@ -119,7 +111,7 @@ class EtcdCtl:
             # Run the member update command for the existing unit_id.
             out = self.run(command)
         except EtcdCtl.CommandFailed:
-            log('Failed to update member {0}'.format(unit_id), 'WARNING')
+            log('Failed to update member {}'.format(unit_id), 'WARNING')
         return out
 
     def cluster_health(self):
@@ -127,7 +119,7 @@ class EtcdCtl:
         organized by topical information with detailed unit output '''
         health = {}
         try:
-            out = self.run('cluster-health')
+            out = self.run('endpoint health')
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
@@ -184,7 +176,7 @@ class EtcdCtl:
             return check_output(
                 command,
                 env=env
-            ).decode('ascii')
+            ).decode('utf-8')
         except CalledProcessError as e:
             log(e.output)
             raise EtcdCtl.CommandFailed() from e
@@ -210,6 +202,6 @@ def get_connection_string(members, port, protocol='https'):
     port and protocol (defaults to https)'''
     connections = []
     for address in members:
-        connections.append('{0}://{1}:{2}'.format(protocol, address, port))
+        connections.append('{}://{}:{}'.format(protocol, address, port))
     connection_string = ','.join(connections)
     return connection_string
