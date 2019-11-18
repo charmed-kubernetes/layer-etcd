@@ -80,12 +80,7 @@ class EtcdCtl:
         response. '''
 
         members = {}
-        if leader_address:
-            cmd = "{} --endpoints {} member list".format(etcdctl_command(),
-                                                         leader_address)
-            out = self.run(cmd)
-        else:
-            out = self.run("{} member list".format(etcdctl_command()))
+        out = self.run('member list', endpoints=leader_address)
         raw_member_list = out.strip('\n').split('\n')
         # Expect output like this:
         # 4f24ee16c889f6c1: name=etcd20 peerURLs=https://10.113.96.197:2380 clientURLs=https://10.113.96.197:2379  # noqa
@@ -119,8 +114,7 @@ class EtcdCtl:
         contact the peer. '''
         out = ''
         try:
-            cmd = '{2} member update {0} {1}'
-            command = cmd.format(unit_id, uri, etcdctl_command())
+            command = 'member update {} {}'.format(unit_id, uri)
             log(command)
             # Run the member update command for the existing unit_id.
             out = self.run(command)
@@ -133,7 +127,7 @@ class EtcdCtl:
         organized by topical information with detailed unit output '''
         health = {}
         try:
-            out = self.run('{} cluster-health'.format(etcdctl_command()))
+            out = self.run('cluster-health')
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
@@ -143,10 +137,11 @@ class EtcdCtl:
             health['units'] = []
         return health
 
-    def run(self, command):
+    def run(self, arguments, endpoints=None):
         ''' Wrapper to subprocess calling output. This is a convenience
         method to clean up the calls to subprocess and append TLS data'''
         env = {}
+        command = [etcdctl_command()]
         opts = layer.options('tls-client')
         ca_path = opts['ca_certificate_path']
         crt_path = opts['server_certificate_path']
@@ -159,15 +154,35 @@ class EtcdCtl:
             env['ETCDCTL_CACERT'] = ca_path
             env['ETCDCTL_CERT'] = crt_path
             env['ETCDCTL_KEY'] = key_path
-        else:
+            if endpoints is None:
+                endpoints = 'http://127.0.0.1:4001'
+
+        elif int(major) == 2:
             env['ETCDCTL_API'] = '2'
             env['ETCDCTL_CA_FILE'] = ca_path
             env['ETCDCTL_CERT_FILE'] = crt_path
             env['ETCDCTL_KEY_FILE'] = key_path
+            if endpoints is None:
+                endpoints = ':4001'
+
+        else:
+            raise NotImplementedError(
+                'etcd version {} not supported'.format(major))
+
+        if isinstance(arguments, str):
+            command.extend(arguments.split())
+        elif isinstance(arguments, list) or isinstance(arguments, tuple):
+            command.extend(arguments)
+        else:
+            raise RuntimeError(
+                'arguments not correct type; must be string, list or tuple')
+
+        if endpoints is not False:
+            command.extend(['--endpoints={}'.format(endpoints)])
 
         try:
             return check_output(
-                split(command),
+                command,
                 env=env
             ).decode('ascii')
         except CalledProcessError as e:
