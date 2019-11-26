@@ -31,14 +31,14 @@ class EtcdCtl:
         # Build a connection string for the cluster data.
         connection = get_connection_string([cluster_data['cluster_address']],
                                            cluster_data['management_port'])
-        # Create a https url to the leader unit name on the private addres.
-        command = "{3} -C {0} member add {1} " \
-                  "{2}".format(cluster_data['leader_address'],
-                               cluster_data['unit_name'],
-                               connection, etcdctl_command())
+
+        command = 'member add {} {}'.format(
+            cluster_data['unit_name'],
+            connection
+        )
 
         try:
-            result = self.run(command)
+            result = self.run(command, endpoints=cluster_data['leader_address'], api=2)
         except EtcdCtl.CommandFailed:
             log('Notice:  Unit failed self registration', 'WARNING')
             raise
@@ -64,15 +64,16 @@ class EtcdCtl:
         @params leader_address - The endpoint to communicate with the leader in
         the event of self deregistration.
         '''
-        return self.run(['member', 'remove', unit_id], endpoints=leader_address)
+        return self.run(['member', 'remove', unit_id], endpoints=leader_address, api=2)
 
-    def member_list(self, leader_address=None):
+    def member_list(self, leader_address=False):
         ''' Returns the output from `etcdctl member list` as a python dict
         organized by unit_name, containing all the data-points in the resulting
         response. '''
+        command = 'member list'
 
         members = {}
-        out = self.run('member list', endpoints=leader_address)
+        out = self.run(command, endpoints=leader_address, api=2)
         raw_member_list = out.strip('\n').split('\n')
         # Expect output like this:
         # 4f24ee16c889f6c1: name=etcd20 peerURLs=https://10.113.96.197:2380 clientURLs=https://10.113.96.197:2379  # noqa
@@ -119,7 +120,7 @@ class EtcdCtl:
         organized by topical information with detailed unit output '''
         health = {}
         try:
-            out = self.run('endpoint health')
+            out = self.run('cluster-health', endpoints=False, api=2)
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
@@ -129,7 +130,7 @@ class EtcdCtl:
             health['units'] = []
         return health
 
-    def run(self, arguments, endpoints=None):
+    def run(self, arguments, endpoints=None, api=3):
         ''' Wrapper to subprocess calling output. This is a convenience
         method to clean up the calls to subprocess and append TLS data'''
         env = {}
@@ -139,9 +140,9 @@ class EtcdCtl:
         crt_path = opts['server_certificate_path']
         key_path = opts['server_key_path']
 
-        major, _, _ = self.version().split('.')
+        #major, _, _ = self.version().split('.')
 
-        if int(major) >= 3:
+        if api == 3:
             env['ETCDCTL_API'] = '3'
             env['ETCDCTL_CACERT'] = ca_path
             env['ETCDCTL_CERT'] = crt_path
@@ -149,7 +150,7 @@ class EtcdCtl:
             if endpoints is None:
                 endpoints = 'http://127.0.0.1:4001'
 
-        elif int(major) == 2:
+        elif api == 2:
             env['ETCDCTL_API'] = '2'
             env['ETCDCTL_CA_FILE'] = ca_path
             env['ETCDCTL_CERT_FILE'] = crt_path
@@ -159,7 +160,7 @@ class EtcdCtl:
 
         else:
             raise NotImplementedError(
-                'etcd version {} not supported'.format(major))
+                'etcd api version {} not supported'.format(api))
 
         if isinstance(arguments, str):
             command.extend(arguments.split())
@@ -170,7 +171,11 @@ class EtcdCtl:
                 'arguments not correct type; must be string, list or tuple')
 
         if endpoints is not False:
-            command.extend(['--endpoints={}'.format(endpoints)])
+            if api == 3:
+                command.extend(['--endpoints', endpoints])
+            elif api == 2:
+                command.insert(1, '--endpoint')
+                command.insert(2, endpoints)
 
         try:
             return check_output(
@@ -178,7 +183,10 @@ class EtcdCtl:
                 env=env
             ).decode('utf-8')
         except CalledProcessError as e:
-            log(e.output)
+            log(command, 'ERROR')
+            log(env, 'ERROR')
+            log(e.stdout, 'ERROR')
+            log(e.stderr, 'ERROR')
             raise EtcdCtl.CommandFailed() from e
 
     def version(self):

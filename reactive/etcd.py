@@ -365,7 +365,7 @@ def register_node_with_leader(cluster):
         # we can register from scratch.
         peer_url = 'https://%s:%s' % (bag.cluster_address, bag.management_port)
         members = etcdctl.member_list(leader_address)
-        for member_name, member in members.items():
+        for _, member in members.items():
             if member['peer_urls'] == peer_url:
                 log('Found member that matches our peer URL. Unregistering...')
                 etcdctl.unregister(member['unit_id'], leader_address)
