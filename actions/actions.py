@@ -114,7 +114,7 @@ def defrag():
 
     '''
     try:
-        output = CTR.run('defrag')
+        output = CTL.run('defrag')
         action_set(dict(output=output))
     except subprocess.CalledProcessError as e:
         action_fail_now(e.output)
