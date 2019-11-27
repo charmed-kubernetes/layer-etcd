@@ -85,7 +85,7 @@ def compact():
     '''
     def get_latest_revision():
         try:
-            output = CTL.run('endpoint status --write-out="json"')
+            output = CTL.run('endpoint status --write-out json')
         except subprocess.CalledProcessError as e:
             action_fail_now(
                 'Failed to determine latest revision for '
