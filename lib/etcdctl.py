@@ -1,7 +1,6 @@
 from charms import layer
 from charmhelpers.core.hookenv import log
 from subprocess import CalledProcessError
-from shlex import split
 from subprocess import check_output
 import os
 
@@ -139,8 +138,6 @@ class EtcdCtl:
         ca_path = opts['ca_certificate_path']
         crt_path = opts['server_certificate_path']
         key_path = opts['server_key_path']
-
-        #major, _, _ = self.version().split('.')
 
         if api == 3:
             env['ETCDCTL_API'] = '3'
