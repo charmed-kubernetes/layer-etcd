@@ -74,7 +74,7 @@ def get_target_etcd_channel():
         if snap.is_installed('etcd'):
             return False
         else:
-            return '3.3/edge'
+            return '3.3/stable'
     else:
         return channel
 
