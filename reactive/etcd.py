@@ -59,6 +59,26 @@ import yaml
 nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
 
+def get_target_etcd_channel():
+    """
+    Check whether or not etcd is already installed. i.e. we're
+    going through an upgrade.  If so, leave the etcd version alone,
+    if we're a new install, we can set the default channel here.
+
+    If the user has specified a version, then just return that.
+
+    :return: String snap channel
+    """
+    channel = hookenv.config('channel')
+    if channel == 'auto':
+        if snap.is_installed('etcd'):
+            return False
+        else:
+            return '3.3/edge'
+    else:
+        return channel
+
+
 @when('etcd.installed')
 def snap_upgrade_notice():
     status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
@@ -284,9 +304,10 @@ def send_cluster_details(proxy):
 @when('config.changed.channel')
 @when_not('etcd.installed')
 def snap_install():
-    channel = hookenv.config('channel')
+    channel = get_target_etcd_channel()
     snap.install('core')
-    snap.install('etcd', channel=channel, classic=False)
+    if channel:
+        snap.install('etcd', channel=channel, classic=False)
     remove_state('etcd.pillowmints')
 
 
@@ -304,9 +325,9 @@ def install_etcd():
 
     status_set('maintenance', 'Installing etcd.')
 
-    channel = hookenv.config('channel')
-    # Grab the snap channel from config
-    snap.install('etcd', channel=channel, classic=False)
+    channel = get_target_etcd_channel()
+    if channel:
+        snap.install('etcd', channel=channel, classic=False)
 
 
 @when('snap.installed.etcd')
