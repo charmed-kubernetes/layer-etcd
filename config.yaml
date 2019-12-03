@@ -10,7 +10,11 @@ options:
   channel:
     type: string
     default: auto
-    description: The snap channel to install from
+    description: |
+      The snap channel from which to install etcd (e.g. '3.3/stable'), or 'auto'
+      to accept the charm default. Choosing 'auto' will install the latest 
+      supported version of etcd at deploy time, but will not automatically upgrade
+      to a newer version thereafter.
   snapd_refresh:
     default: "max"
     type: string
