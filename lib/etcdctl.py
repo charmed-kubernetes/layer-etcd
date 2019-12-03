@@ -1,7 +1,6 @@
 from charms import layer
 from charmhelpers.core.hookenv import log
 from subprocess import CalledProcessError
-from shlex import split
 from subprocess import check_output
 import os
 
@@ -31,14 +30,14 @@ class EtcdCtl:
         # Build a connection string for the cluster data.
         connection = get_connection_string([cluster_data['cluster_address']],
                                            cluster_data['management_port'])
-        # Create a https url to the leader unit name on the private addres.
-        command = "{3} -C {0} member add {1} " \
-                  "{2}".format(cluster_data['leader_address'],
-                               cluster_data['unit_name'],
-                               connection, etcdctl_command())
+
+        command = 'member add {} {}'.format(
+            cluster_data['unit_name'],
+            connection
+        )
 
         try:
-            result = self.run(command)
+            result = self.run(command, endpoints=cluster_data['leader_address'], api=2)
         except EtcdCtl.CommandFailed:
             log('Notice:  Unit failed self registration', 'WARNING')
             raise
@@ -64,28 +63,16 @@ class EtcdCtl:
         @params leader_address - The endpoint to communicate with the leader in
         the event of self deregistration.
         '''
+        return self.run(['member', 'remove', unit_id], endpoints=leader_address, api=2)
 
-        if leader_address:
-            cmd = "{0} --endpoint {1} member remove {2}"
-            command = cmd.format(etcdctl_command(), leader_address, unit_id)
-        else:
-            cmd = "{0} member remove {1}"
-            command = cmd.format(etcdctl_command(), unit_id)
-
-        return self.run(command)
-
-    def member_list(self, leader_address=None):
+    def member_list(self, leader_address=False):
         ''' Returns the output from `etcdctl member list` as a python dict
         organized by unit_name, containing all the data-points in the resulting
         response. '''
+        command = 'member list'
 
         members = {}
-        if leader_address:
-            cmd = "{0} --endpoint {1} member list".format(etcdctl_command(),
-                                                          leader_address)
-            out = self.run(cmd)
-        else:
-            out = self.run("{} member list".format(etcdctl_command()))
+        out = self.run(command, endpoints=leader_address, api=2)
         raw_member_list = out.strip('\n').split('\n')
         # Expect output like this:
         # 4f24ee16c889f6c1: name=etcd20 peerURLs=https://10.113.96.197:2380 clientURLs=https://10.113.96.197:2379  # noqa
@@ -119,13 +106,12 @@ class EtcdCtl:
         contact the peer. '''
         out = ''
         try:
-            cmd = '{2} member update {0} {1}'
-            command = cmd.format(unit_id, uri, etcdctl_command())
+            command = 'member update {} {}'.format(unit_id, uri)
             log(command)
             # Run the member update command for the existing unit_id.
             out = self.run(command)
         except EtcdCtl.CommandFailed:
-            log('Failed to update member {0}'.format(unit_id), 'WARNING')
+            log('Failed to update member {}'.format(unit_id), 'WARNING')
         return out
 
     def cluster_health(self):
@@ -133,7 +119,7 @@ class EtcdCtl:
         organized by topical information with detailed unit output '''
         health = {}
         try:
-            out = self.run('{} cluster-health'.format(etcdctl_command()))
+            out = self.run('cluster-health', endpoints=False, api=2)
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
@@ -143,50 +129,77 @@ class EtcdCtl:
             health['units'] = []
         return health
 
-    def run(self, command):
+    def run(self, arguments, endpoints=None, api=3):
         ''' Wrapper to subprocess calling output. This is a convenience
         method to clean up the calls to subprocess and append TLS data'''
+        env = {}
+        command = [etcdctl_command()]
         opts = layer.options('tls-client')
         ca_path = opts['ca_certificate_path']
         crt_path = opts['server_certificate_path']
         key_path = opts['server_key_path']
 
-        if '--version' not in command:
-            major, minor, _ = self.version().split('.')
+        if api == 3:
+            env['ETCDCTL_API'] = '3'
+            env['ETCDCTL_CACERT'] = ca_path
+            env['ETCDCTL_CERT'] = crt_path
+            env['ETCDCTL_KEY'] = key_path
+            if endpoints is None:
+                endpoints = 'http://127.0.0.1:4001'
 
-            if int(major) >= 3 and int(minor) >= 3:
-                # os.environ['ETCDCTL_CACERT'] = ca_path
-                # os.environ['ETCDCTL_CERT'] = crt_path
-                # os.environ['ETCDCTL_KEY'] = key_path
+        elif api == 2:
+            env['ETCDCTL_API'] = '2'
+            env['ETCDCTL_CA_FILE'] = ca_path
+            env['ETCDCTL_CERT_FILE'] = crt_path
+            env['ETCDCTL_KEY_FILE'] = key_path
+            if endpoints is None:
+                endpoints = ':4001'
 
-                # Currently, this method doesn't use
-                # ETCDCTL_API=3, so I'll leave the
-                # above in place in case we switch.
-                os.environ['ETCDCTL_CA_FILE'] = ca_path
-                os.environ['ETCDCTL_CERT_FILE'] = crt_path
-                os.environ['ETCDCTL_KEY_FILE'] = key_path
-            else:
-                os.environ['ETCDCTL_CA_FILE'] = ca_path
-                os.environ['ETCDCTL_CERT_FILE'] = crt_path
-                os.environ['ETCDCTL_KEY_FILE'] = key_path
+        else:
+            raise NotImplementedError(
+                'etcd api version {} not supported'.format(api))
+
+        if isinstance(arguments, str):
+            command.extend(arguments.split())
+        elif isinstance(arguments, list) or isinstance(arguments, tuple):
+            command.extend(arguments)
+        else:
+            raise RuntimeError(
+                'arguments not correct type; must be string, list or tuple')
+
+        if endpoints is not False:
+            if api == 3:
+                command.extend(['--endpoints', endpoints])
+            elif api == 2:
+                command.insert(1, '--endpoint')
+                command.insert(2, endpoints)
 
         try:
-            return check_output(split(command)).decode('ascii')
+            return check_output(
+                command,
+                env=env
+            ).decode('utf-8')
         except CalledProcessError as e:
-            log(e.output)
+            log(command, 'ERROR')
+            log(env, 'ERROR')
+            log(e.stdout, 'ERROR')
+            log(e.stderr, 'ERROR')
             raise EtcdCtl.CommandFailed() from e
 
     def version(self):
         ''' Return the version of etcdctl '''
-        version = ''
-        out = self.run('{} --version'.format(etcdctl_command()))
+        out = check_output(
+            [etcdctl_command(), 'version'],
+            env={'ETCDCTL_API': '3'}
+        ).decode('utf-8')
 
-        for line in out.split('\n'):
-            if 'etcdctl' in line:
-                # Note: version 2 does not contain any : so split on version
-                # and handle etcd 3+ output accordingly.
-                version = line.split('version')[-1].replace(':', '').strip()
-        return version
+        if out == "No help topic for 'version'\n":
+            # Probably on etcd2
+            out = check_output(
+                [etcdctl_command(), '--version']
+            ).decode('utf-8')
+
+        return out.split('\n')[0].split()[2]
 
 
 def get_connection_string(members, port, protocol='https'):
@@ -194,6 +207,6 @@ def get_connection_string(members, port, protocol='https'):
     port and protocol (defaults to https)'''
     connections = []
     for address in members:
-        connections.append('{0}://{1}:{2}'.format(protocol, address, port))
+        connections.append('{}://{}:{}'.format(protocol, address, port))
     connection_string = ','.join(connections)
     return connection_string

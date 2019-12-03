@@ -59,6 +59,26 @@ import yaml
 nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
 
+def get_target_etcd_channel():
+    """
+    Check whether or not etcd is already installed. i.e. we're
+    going through an upgrade.  If so, leave the etcd version alone,
+    if we're a new install, we can set the default channel here.
+
+    If the user has specified a version, then just return that.
+
+    :return: String snap channel
+    """
+    channel = hookenv.config('channel')
+    if channel == 'auto':
+        if snap.is_installed('etcd'):
+            return False
+        else:
+            return '3.3/stable'
+    else:
+        return channel
+
+
 @when('etcd.installed')
 def snap_upgrade_notice():
     status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
@@ -284,9 +304,10 @@ def send_cluster_details(proxy):
 @when('config.changed.channel')
 @when_not('etcd.installed')
 def snap_install():
-    channel = hookenv.config('channel')
+    channel = get_target_etcd_channel()
     snap.install('core')
-    snap.install('etcd', channel=channel, classic=False)
+    if channel:
+        snap.install('etcd', channel=channel, classic=False)
     remove_state('etcd.pillowmints')
 
 
@@ -304,9 +325,9 @@ def install_etcd():
 
     status_set('maintenance', 'Installing etcd.')
 
-    channel = hookenv.config('channel')
-    # Grab the snap channel from config
-    snap.install('etcd', channel=channel, classic=False)
+    channel = get_target_etcd_channel()
+    if channel:
+        snap.install('etcd', channel=channel, classic=False)
 
 
 @when('snap.installed.etcd')
@@ -365,7 +386,7 @@ def register_node_with_leader(cluster):
         # we can register from scratch.
         peer_url = 'https://%s:%s' % (bag.cluster_address, bag.management_port)
         members = etcdctl.member_list(leader_address)
-        for member_name, member in members.items():
+        for _, member in members.items():
             if member['peer_urls'] == peer_url:
                 log('Found member that matches our peer URL. Unregistering...')
                 etcdctl.unregister(member['unit_id'], leader_address)
@@ -743,9 +764,12 @@ def render_config(bag=None):
 
 def etcd_version():
     ''' This method surfaces the version from etcdctl '''
-    cmd = ['/snap/bin/etcd.etcdctl', '--version']
+    cmd = ['/snap/bin/etcd.etcdctl', 'version']
     try:
-        raw_output = check_output(cmd)
+        raw_output = check_output(
+            cmd,
+            env={'ETCDCTL_API': '3'}
+        )
         lines = raw_output.split(b'\n')
         for line in lines:
             if b'etcdctl version' in line:

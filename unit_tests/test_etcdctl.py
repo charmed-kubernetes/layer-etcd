@@ -1,5 +1,4 @@
 import pytest
-import os
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -8,7 +7,11 @@ sys.modules['charms'] = charms
 ch = MagicMock()
 sys.modules['charmhelpers.core.hookenv'] = ch.core.hookenv
 
-from etcdctl import EtcdCtl, etcdctl_command  # noqa
+from etcdctl import (
+    EtcdCtl,
+    etcdctl_command,
+    get_connection_string
+)  # noqa
 
 
 class TestEtcdCtl:
@@ -23,14 +26,13 @@ class TestEtcdCtl:
                               'unit_name': 'etcd0',
                               'management_port': '1313',
                               'leader_address': 'http://127.1.1.1:1212'})
-            spcm.assert_called_with(('etcdctl -C http://127.1.1.1:1212 member '
-                                     'add etcd0 https://127.0.0.1:1313'))
+            spcm.assert_called_with('member add etcd0 https://127.0.0.1:1313', api=2, endpoints='http://127.1.1.1:1212')
 
     def test_unregister(self, etcdctl):
         with patch('etcdctl.EtcdCtl.run') as spcm:
             etcdctl.unregister('br1212121212')
 
-            spcm.assert_called_with('etcdctl member remove br1212121212')
+            spcm.assert_called_with(['member', 'remove', 'br1212121212'], api=2, endpoints=None)
 
     def test_member_list(self, etcdctl):
         with patch('etcdctl.EtcdCtl.run') as comock:
@@ -59,17 +61,16 @@ class TestEtcdCtl:
         ''' Validate that etcdctl can parse versions for both etcd v2 and
         etcd v3 '''
         # Define fixtures of what we expect for the version output
-        etcdctl_2_version = "etcdctl version 2.3.8\n"
-
-        with patch('etcdctl.EtcdCtl.run') as comock:
+        etcdctl_2_version = b"etcdctl version 2.3.8\n"
+        with patch('etcdctl.check_output') as comock:
             comock.return_value = etcdctl_2_version
             ver = etcdctl.version()
             assert(ver == '2.3.8')
 
     def test_etcd_v3_version(self, etcdctl):
         ''' Validate that etcdctl can parse version for etcdctl v3 '''
-        etcdctl_3_version = "etcdctl version: 3.0.17\nAPI version: 2\n"
-        with patch('etcdctl.EtcdCtl.run') as comock:
+        etcdctl_3_version = b"etcdctl version: 3.0.17\nAPI version: 2\n"
+        with patch('etcdctl.check_output') as comock:
             comock.return_value = etcdctl_3_version
             ver = etcdctl.version()
             assert(ver == '3.0.17')
@@ -78,9 +79,27 @@ class TestEtcdCtl:
         ''' Validate sane results from etcdctl_command '''
         assert(isinstance(etcdctl_command(), str))
 
-    def test_etcdctl_environment_with_version(self, etcdctl):
+    def test_etcdctl_environment_with_version_2(self, etcdctl):
         ''' Validate that environment gets set correctly
         spoiler alert; it shouldn't be set when passing --version '''
-        with patch.dict('os.environ', {'ETCDCTL_CA_FILE': 'Untouched'}):
-            etcdctl.run('/bin/true --version')
-            assert(os.environ.get('ETCDCTL_CA_FILE') == 'Untouched')
+        with patch('etcdctl.check_output') as comock:
+            etcdctl.run('member list', api=2)
+            api_version = comock.call_args[1].get('env').get('ETCDCTL_API')
+            assert(api_version == '2')
+
+    def test_etcdctl_environment_with_version_3(self, etcdctl):
+        ''' Validate that environment gets set correctly
+        spoiler alert; it shouldn't be set when passing --version '''
+        with patch('etcdctl.check_output') as comock:
+            etcdctl.run('member list', api=3)
+            api_version = comock.call_args[1].get('env').get('ETCDCTL_API')
+            assert(api_version == '3')
+
+    def test_get_connection_string(self):
+        ''' Validate the get_connection_string function
+        gives a sane return.
+        '''
+        assert(
+            get_connection_string(['1.1.1.1'], '1111') ==
+            'https://1.1.1.1:1111'
+        )

@@ -8,6 +8,8 @@ import sys
 
 from charms import layer
 
+from etcdctl import EtcdCtl
+
 from charmhelpers.core.hookenv import (
     action_get,
     action_set,
@@ -16,65 +18,15 @@ from charmhelpers.core.hookenv import (
 )
 
 
+CTL = EtcdCtl()
+
+
 def action_fail_now(*args, **kw):
     '''Call action_fail() and exit immediately.
 
     '''
     action_fail(*args, **kw)
     sys.exit(0)
-
-
-def etcdctl_path():
-    '''Return path to etcdctl binary.
-
-    '''
-    if os.path.isfile('/snap/bin/etcd.etcdctl'):
-        return '/snap/bin/etcd.etcdctl'
-    return 'etcdctl'
-
-
-def etcdctl(cmd, etcdctl_api='3', endpoints=None, **kw):
-    '''Call etcdctl with ``cmd`` as the command-line args.
-
-    '''
-    opts = layer.options('tls-client')
-    env = os.environ.copy()
-
-    if etcdctl_api:
-        env['ETCDCTL_API'] = etcdctl_api
-
-    etcdctl_cmd = etcdctl_path()
-
-    if endpoints is not False:
-        major, minor, _ = etcdctl_version().split('.')
-        if int(major) >= 3 and int(minor) >= 3:
-            env['ETCDCTL_CACERT'] = opts['ca_certificate_path']
-            env['ETCDCTL_CERT'] = opts['server_certificate_path']
-            env['ETCDCTL_KEY'] = opts['server_key_path']
-            if endpoints is None:
-                endpoints = 'http://127.0.0.1:4001'
-                etcdctl_cmd += ' --endpoints={}'.format(endpoints)
-        else:
-            env['ETCDCTL_CA_FILE'] = opts['ca_certificate_path']
-            env['ETCDCTL_CERT_FILE'] = opts['server_certificate_path']
-            env['ETCDCTL_KEY_FILE'] = opts['server_key_path']
-            if endpoints is None:
-                endpoints = ':4001'
-                etcdctl_cmd += ' --endpoints={}'.format(endpoints)
-
-    args = shlex.split(etcdctl_cmd) + shlex.split(cmd)
-    return subprocess.check_output(
-        args, env=env, stderr=subprocess.STDOUT, **kw).decode("utf-8").strip()
-
-
-def etcdctl_version():
-    '''Return etcdctl version.
-
-    '''
-    output = etcdctl("--version", etcdctl_api=None, endpoints=False)
-    first_line = output.split('\n')[0]
-    version = first_line.split(' ')[-1]
-    return version.strip()
 
 
 def requires_etcd_version(version_regex, human_version=None):
@@ -87,7 +39,7 @@ def requires_etcd_version(version_regex, human_version=None):
     '''
     def wrap(f):
         def wrapped_f(*args):
-            version = etcdctl_version()
+            version = CTL.version()
             if not re.match(version_regex, version):
                 required_version = human_version or version_regex
                 action_fail_now(
@@ -108,7 +60,7 @@ def alarm_disarm():
 
     '''
     try:
-        output = etcdctl('alarm disarm')
+        output = CTL.run('alarm disarm')
         action_set(dict(output=output))
     except subprocess.CalledProcessError as e:
         action_fail_now(e.output)
@@ -120,7 +72,7 @@ def alarm_list():
 
     '''
     try:
-        output = etcdctl('alarm list')
+        output = CTL.run('alarm list')
         action_set(dict(output=output))
     except subprocess.CalledProcessError as e:
         action_fail_now(e.output)
@@ -133,7 +85,7 @@ def compact():
     '''
     def get_latest_revision():
         try:
-            output = etcdctl('endpoint status --write-out="json"')
+            output = CTL.run('endpoint status --write-out json')
         except subprocess.CalledProcessError as e:
             action_fail_now(
                 'Failed to determine latest revision for '
@@ -150,7 +102,7 @@ def compact():
     physical = 'true' if action_get('physical') else 'false'
     command = 'compact {} --physical={}'.format(revision, physical)
     try:
-        output = etcdctl(command)
+        output = CTL.run(command)
         action_set(dict(output=output))
     except subprocess.CalledProcessError as e:
         action_fail_now(e.output)
@@ -162,7 +114,7 @@ def defrag():
 
     '''
     try:
-        output = etcdctl('defrag')
+        output = CTL.run('defrag')
         action_set(dict(output=output))
     except subprocess.CalledProcessError as e:
         action_fail_now(e.output)
