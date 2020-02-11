@@ -309,6 +309,7 @@ def snap_install():
     snap.install('core')
     if channel:
         snap.install('etcd', channel=channel, classic=False)
+        remove_state('etcd.ssl.exported')
 
 
 @when('etcd.ssl.placed')
