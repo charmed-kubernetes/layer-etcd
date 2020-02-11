@@ -329,7 +329,7 @@ def install_etcd():
     if channel:
         snap.install('etcd', channel=channel, classic=False)
 
-    set_state('etcd.installed')
+    set_state('snap.installed.etcd')
 
 
 @when('snap.installed.etcd')
@@ -526,7 +526,6 @@ def tls_update():
 
     # ensure that certs are re-echoed to the db relations
     remove_state('etcd.ssl.placed')
-
     remove_state('tls_client.ca.written')
     remove_state('tls_client.server.certificate.written')
     remove_state('tls_client.client.certificate.written')
