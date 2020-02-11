@@ -329,8 +329,6 @@ def install_etcd():
     if channel:
         snap.install('etcd', channel=channel, classic=False)
 
-    set_state('snap.installed.etcd')
-
 
 @when('snap.installed.etcd')
 @when_not('etcd.service-restart.configured')
