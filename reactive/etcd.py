@@ -8,6 +8,7 @@ from charms.reactive import endpoint_from_flag
 from charms.reactive import when
 from charms.reactive import when_any
 from charms.reactive import when_not
+from charms.reactive import is_state
 from charms.reactive import set_state
 from charms.reactive import remove_state
 from charms.reactive import hook
@@ -149,7 +150,7 @@ def remove_states():
     # stale state cleanup (pre rev6)
     remove_state('etcd.tls.secured')
     remove_state('etcd.ssl.placed')
-    remove_state('etcd.pillowmints')
+    remove_state('etcd.ssl.exported')
 
 
 @when('snap.installed.etcd')
@@ -308,7 +309,7 @@ def snap_install():
     snap.install('core')
     if channel:
         snap.install('etcd', channel=channel, classic=False)
-    remove_state('etcd.pillowmints')
+        remove_state('etcd.ssl.exported')
 
 
 @when('etcd.ssl.placed')
@@ -318,7 +319,7 @@ def install_etcd():
     resources are provided attempt to install from the archive only on the
     16.04 (xenial) series. '''
 
-    if charms.reactive.is_state('etcd.installed'):
+    if is_state('etcd.installed'):
         msg = 'Manual upgrade required. run-action snap-upgrade.'
         status_set('blocked', msg)
         return
@@ -524,13 +525,13 @@ def tls_update():
 
     # ensure that certs are re-echoed to the db relations
     remove_state('etcd.ssl.placed')
-
     remove_state('tls_client.ca.written')
     remove_state('tls_client.server.certificate.written')
     remove_state('tls_client.client.certificate.written')
 
 
-@when_not('etcd.pillowmints')
+@when('snap.installed.etcd')
+@when_not('etcd.ssl.exported')
 def render_default_user_ssl_exports():
     ''' Add secure credentials to default user environment configs,
     transparently adding TLS '''
@@ -559,7 +560,8 @@ def render_default_user_ssl_exports():
         fp.writelines(evars)
     with open('/root/.bash_aliases', 'w') as fp:
         fp.writelines(evars)
-    set_state('etcd.pillowmints')
+
+    set_state('etcd.ssl.exported')
 
 
 @hook('cluster-relation-broken')
