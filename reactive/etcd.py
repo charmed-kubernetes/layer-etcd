@@ -708,7 +708,7 @@ def update_nrpe_config(unused=None):
     )
 
     # install the NRPE script for the above
-    fh = open("templates/check_etcd_alarms.py")
+    fh = open("templates/check_etcd-alarms.py")
     write_file(
         path="/usr/lib/nagios/plugins/check_etcd-alarms.py",
         content=fh.read().encode(),
