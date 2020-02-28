@@ -690,14 +690,13 @@ def update_nrpe_config(unused=None):
     nrpe.add_init_service_checks(nrpe_setup, services, current_unit)
 
     # add the cron job to populate the cache for our second check
-    fh = open("templates/check_etcd-alarms.cron")
-    write_file(
-        path="/etc/cron.d/check_etcd-alarms",
-        content=fh.read().encode(),
-        owner="root",
-        perms=0o644,
-    )
-    fh.close()
+    with open("templates/check_etcd-alarms.cron") as fp:
+        write_file(
+            path="/etc/cron.d/check_etcd-alarms",
+            content=fp.read().encode(),
+            owner="root",
+            perms=0o644,
+        )
 
     # create an empty output file for the above
     write_file(
@@ -708,14 +707,13 @@ def update_nrpe_config(unused=None):
     )
 
     # install the NRPE script for the above
-    fh = open("templates/check_etcd-alarms.py")
-    write_file(
-        path="/usr/lib/nagios/plugins/check_etcd-alarms.py",
-        content=fh.read().encode(),
-        owner="root",
-        perms=0o755,
-    )
-    fh.close()
+    with open("templates/check_etcd-alarms.py") as fp:
+        write_file(
+            path="/usr/lib/nagios/plugins/check_etcd-alarms.py",
+            content=fp.read().encode(),
+            owner="root",
+            perms=0o755,
+        )
 
     # define our second check, to alert on etcd alarm status
     nrpe_setup.add_check(
