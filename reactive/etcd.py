@@ -690,6 +690,7 @@ def update_nrpe_config(unused=None):
     nrpe.add_init_service_checks(nrpe_setup, services, current_unit)
 
     # add the cron job to populate the cache for our second check
+    # (we cache the output of 'etcdctl alarm list' to minimise overhead)
     with open("templates/check_etcd-alarms.cron") as fp:
         write_file(
             path="/etc/cron.d/check_etcd-alarms",
