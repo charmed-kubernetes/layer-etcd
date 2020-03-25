@@ -25,6 +25,7 @@ from charmhelpers.core.hookenv import storage_get
 from charmhelpers.core.hookenv import application_version_set
 from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import close_port
+from charmhelpers.core.host import write_file
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
 from charmhelpers.contrib.charmsupport import nrpe
@@ -685,7 +686,43 @@ def update_nrpe_config(unused=None):
     hostname = nrpe.get_nagios_hostname()
     current_unit = nrpe.get_nagios_unit_name()
     nrpe_setup = nrpe.NRPE(hostname=hostname, primary=False)
+    # add our first check, to alert on service failure
     nrpe.add_init_service_checks(nrpe_setup, services, current_unit)
+
+    # add the cron job to populate the cache for our second check
+    # (we cache the output of 'etcdctl alarm list' to minimise overhead)
+    with open("templates/check_etcd-alarms.cron") as fp:
+        write_file(
+            path="/etc/cron.d/check_etcd-alarms",
+            content=fp.read().encode(),
+            owner="root",
+            perms=0o644,
+        )
+
+    # create an empty output file for the above
+    write_file(
+        path="/var/lib/nagios/etcd-alarm-list.txt",
+        content="",
+        owner="root",
+        perms=0o644,
+    )
+
+    # install the NRPE script for the above
+    with open("templates/check_etcd-alarms.py") as fp:
+        write_file(
+            path="/usr/lib/nagios/plugins/check_etcd-alarms.py",
+            content=fp.read().encode(),
+            owner="root",
+            perms=0o755,
+        )
+
+    # define our second check, to alert on etcd alarm status
+    nrpe_setup.add_check(
+        "etcd-alarms",
+        "Verify etcd has no raised alarms",
+        "/usr/lib/nagios/plugins/check_etcd-alarms.py",
+    )
+
     nrpe_setup.write()
 
 
