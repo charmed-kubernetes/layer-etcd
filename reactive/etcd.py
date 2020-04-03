@@ -88,6 +88,7 @@ def snap_upgrade_notice():
 
 @when_any('etcd.registered', 'etcd.leader.configured')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def check_cluster_health():
     ''' report on the cluster health every 5 minutes'''
     etcdctl = EtcdCtl()
@@ -154,10 +155,24 @@ def remove_states():
     remove_state('etcd.ssl.exported')
 
 
+@hook('pre-series-upgrade')
+def pre_series_upgrade():
+    bag = EtcdDatabag()
+    host.service_pause(bag.etcd_daemon)
+    status_set('blocked', 'Series upgrade in progress')
+
+
+@hook('post-series-upgrade')
+def post_series_upgrade():
+    bag = EtcdDatabag()
+    host.service_resume(bag.etcd_daemon)
+
+
 @when('snap.installed.etcd')
 @when('leadership.is_leader')
 @when_any('config.changed.port', 'config.changed.management_port')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def leader_config_changed():
     ''' The leader executes the runtime configuration update for the cluster,
     as it is the controlling unit. Will render config, close and open ports and
@@ -210,6 +225,7 @@ def follower_config_changed():
 
 @when('snap.installed.etcd')
 @when('config.changed.bind_to_all_interfaces')
+@when_not('upgrade.series.in-progress')
 def bind_to_all_interfaces_changed():
     ''' Config must be updated and service restarted '''
     bag = EtcdDatabag()
@@ -334,6 +350,7 @@ def install_etcd():
 
 @when('snap.installed.etcd')
 @when_not('etcd.service-restart.configured')
+@when_not('upgrade.series.in-progress')
 def add_systemd_restart_always():
     template = 'templates/service-always-restart.systemd-latest.conf'
     service = 'snap.etcd.etcd'
@@ -369,6 +386,7 @@ def add_systemd_restart_always():
 @when_not('leadership.is_leader')
 @when_not('etcd.registered')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def register_node_with_leader(cluster):
     '''
     Control flow mechanism to perform self registration with the leader.
@@ -412,6 +430,7 @@ def register_node_with_leader(cluster):
 @when('leadership.is_leader')
 @when_not('etcd.leader.configured')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def initialize_new_leader():
     ''' Create an initial cluster string to bring up a single member cluster of
     etcd, and set the leadership data so the followers can join this one. '''
@@ -515,6 +534,7 @@ def tls_state_control():
 @when_any('tls_client.ca.written',
           'tls_client.server.certificate.written',
           'tls_client.client.certificate.written')
+@when_not('upgrade.series.in-progress')
 def tls_update():
     ''' Handle changes to the TLS data by ensuring that the service is
         restarted.
