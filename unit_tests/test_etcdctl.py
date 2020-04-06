@@ -1,17 +1,17 @@
 import pytest
-import sys
-from unittest.mock import MagicMock, patch
-
-charms = MagicMock()
-sys.modules['charms'] = charms
-ch = MagicMock()
-sys.modules['charmhelpers.core.hookenv'] = ch.core.hookenv
+from unittest.mock import patch
 
 from etcdctl import (
     EtcdCtl,
     etcdctl_command,
-    get_connection_string
+    get_connection_string,
 )  # noqa
+
+from reactive.etcd import (
+    host,
+    pre_series_upgrade,
+    post_series_upgrade,
+)
 
 
 class TestEtcdCtl:
@@ -103,3 +103,13 @@ class TestEtcdCtl:
             get_connection_string(['1.1.1.1'], '1111') ==
             'https://1.1.1.1:1111'
         )
+
+    def test_series_upgrade(self):
+        assert host.service_pause.call_count == 0
+        assert host.service_resume.call_count == 0
+        pre_series_upgrade()
+        assert host.service_pause.call_count == 1
+        assert host.service_resume.call_count == 0
+        post_series_upgrade()
+        assert host.service_pause.call_count == 1
+        assert host.service_resume.call_count == 1
