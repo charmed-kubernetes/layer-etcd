@@ -17,5 +17,5 @@ workers.
 Etcd allows storing data in a distributed hierarchical database with
 observation.
 
-This charm is a component of Charmed Kubernetes. For full information,
+This charm is maintained along with the components of Charmed Kubernetes. For full information,
 please visit the [official Charmed Kubernetes docs](https://www.ubuntu.com/kubernetes/docs/charm-etcd).
