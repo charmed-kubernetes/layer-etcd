@@ -19,7 +19,6 @@ from charms.templating.jinja2 import render
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
-from charmhelpers.core.hookenv import status_set
 from charmhelpers.core.hookenv import storage_get
 
 from charmhelpers.core.hookenv import application_version_set
@@ -29,6 +28,8 @@ from charmhelpers.core.host import write_file
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
 from charmhelpers.contrib.charmsupport import nrpe
+
+from charms.layer import status
 
 from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
@@ -83,11 +84,12 @@ def get_target_etcd_channel():
 
 @when('etcd.installed')
 def snap_upgrade_notice():
-    status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
+    status.blocked('Manual migration required. http://bit.ly/2oznAUZ')
 
 
 @when_any('etcd.registered', 'etcd.leader.configured')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def check_cluster_health():
     ''' report on the cluster health every 5 minutes'''
     etcdctl = EtcdCtl()
@@ -109,7 +111,7 @@ def check_cluster_health():
     bp = "{0} with {1} known peer{2}"
     status_message = bp.format(unit_health, peers, 's' if peers != 1 else '')
 
-    status_set('active', status_message)
+    status.active(status_message)
 
 
 @when('snap.installed.etcd')
@@ -123,7 +125,7 @@ def set_app_version():
 
 @when_not('certificates.available')
 def missing_relation_notice():
-    status_set('blocked', 'Missing relation to certificate authority.')
+    status.blocked('Missing relation to certificate authority.')
 
 
 @when('certificates.available')
@@ -154,10 +156,24 @@ def remove_states():
     remove_state('etcd.ssl.exported')
 
 
+@hook('pre-series-upgrade')
+def pre_series_upgrade():
+    bag = EtcdDatabag()
+    host.service_pause(bag.etcd_daemon)
+    status.blocked('Series upgrade in progress')
+
+
+@hook('post-series-upgrade')
+def post_series_upgrade():
+    bag = EtcdDatabag()
+    host.service_resume(bag.etcd_daemon)
+
+
 @when('snap.installed.etcd')
 @when('leadership.is_leader')
 @when_any('config.changed.port', 'config.changed.management_port')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def leader_config_changed():
     ''' The leader executes the runtime configuration update for the cluster,
     as it is the controlling unit. Will render config, close and open ports and
@@ -210,6 +226,7 @@ def follower_config_changed():
 
 @when('snap.installed.etcd')
 @when('config.changed.bind_to_all_interfaces')
+@when_not('upgrade.series.in-progress')
 def bind_to_all_interfaces_changed():
     ''' Config must be updated and service restarted '''
     bag = EtcdDatabag()
@@ -322,10 +339,10 @@ def install_etcd():
 
     if is_state('etcd.installed'):
         msg = 'Manual upgrade required. run-action snap-upgrade.'
-        status_set('blocked', msg)
+        status.blocked(msg)
         return
 
-    status_set('maintenance', 'Installing etcd.')
+    status.maintenance('Installing etcd.')
 
     channel = get_target_etcd_channel()
     if channel:
@@ -334,6 +351,7 @@ def install_etcd():
 
 @when('snap.installed.etcd')
 @when_not('etcd.service-restart.configured')
+@when_not('upgrade.series.in-progress')
 def add_systemd_restart_always():
     template = 'templates/service-always-restart.systemd-latest.conf'
     service = 'snap.etcd.etcd'
@@ -369,6 +387,7 @@ def add_systemd_restart_always():
 @when_not('leadership.is_leader')
 @when_not('etcd.registered')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def register_node_with_leader(cluster):
     '''
     Control flow mechanism to perform self registration with the leader.
@@ -399,7 +418,7 @@ def register_node_with_leader(cluster):
     except EtcdCtl.CommandFailed:
         log('etcdctl.register failed, will retry')
         msg = 'Waiting to retry etcd registration'
-        status_set('waiting', msg)
+        status.waiting(msg)
         return
 
     render_config(bag)
@@ -412,6 +431,7 @@ def register_node_with_leader(cluster):
 @when('leadership.is_leader')
 @when_not('etcd.leader.configured')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def initialize_new_leader():
     ''' Create an initial cluster string to bring up a single member cluster of
     etcd, and set the leadership data so the followers can join this one. '''
@@ -433,7 +453,7 @@ def initialize_new_leader():
     etcdctl = EtcdCtl()
     status = etcdctl.cluster_health()
     if 'unhealthy' in status:
-        status_set('blocked', 'Cluster not healthy.')
+        status.blocked('Cluster not healthy.')
         return
     # We have a healthy leader, broadcast initial data-points for followers
     open_port(bag.port)
@@ -515,6 +535,7 @@ def tls_state_control():
 @when_any('tls_client.ca.written',
           'tls_client.server.certificate.written',
           'tls_client.client.certificate.written')
+@when_not('upgrade.series.in-progress')
 def tls_update():
     ''' Handle changes to the TLS data by ensuring that the service is
         restarted.
