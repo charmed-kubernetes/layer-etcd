@@ -8,6 +8,7 @@ includes:
   - 'layer:tls-client'
   - 'layer:snap'
   - 'layer:cdk-service-kicker'
+  - 'layer:status'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
   - 'interface:nrpe-external-master'

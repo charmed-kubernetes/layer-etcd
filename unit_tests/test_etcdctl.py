@@ -11,6 +11,7 @@ from reactive.etcd import (
     host,
     pre_series_upgrade,
     post_series_upgrade,
+    status,
 )
 
 
@@ -107,9 +108,12 @@ class TestEtcdCtl:
     def test_series_upgrade(self):
         assert host.service_pause.call_count == 0
         assert host.service_resume.call_count == 0
+        assert status.blocked.call_count == 0
         pre_series_upgrade()
         assert host.service_pause.call_count == 1
         assert host.service_resume.call_count == 0
+        assert status.blocked.call_count == 1
         post_series_upgrade()
         assert host.service_pause.call_count == 1
         assert host.service_resume.call_count == 1
+        assert status.blocked.call_count == 1

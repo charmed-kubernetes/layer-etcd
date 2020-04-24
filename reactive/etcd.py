@@ -19,7 +19,6 @@ from charms.templating.jinja2 import render
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
-from charmhelpers.core.hookenv import status_set
 from charmhelpers.core.hookenv import storage_get
 
 from charmhelpers.core.hookenv import application_version_set
@@ -29,6 +28,8 @@ from charmhelpers.core.host import write_file
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
 from charmhelpers.contrib.charmsupport import nrpe
+
+from charms.layer import status
 
 from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
@@ -83,7 +84,7 @@ def get_target_etcd_channel():
 
 @when('etcd.installed')
 def snap_upgrade_notice():
-    status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
+    status.blocked('Manual migration required. http://bit.ly/2oznAUZ')
 
 
 @when_any('etcd.registered', 'etcd.leader.configured')
@@ -110,7 +111,7 @@ def check_cluster_health():
     bp = "{0} with {1} known peer{2}"
     status_message = bp.format(unit_health, peers, 's' if peers != 1 else '')
 
-    status_set('active', status_message)
+    status.active(status_message)
 
 
 @when('snap.installed.etcd')
@@ -124,7 +125,7 @@ def set_app_version():
 
 @when_not('certificates.available')
 def missing_relation_notice():
-    status_set('blocked', 'Missing relation to certificate authority.')
+    status.blocked('Missing relation to certificate authority.')
 
 
 @when('certificates.available')
@@ -159,7 +160,7 @@ def remove_states():
 def pre_series_upgrade():
     bag = EtcdDatabag()
     host.service_pause(bag.etcd_daemon)
-    status_set('blocked', 'Series upgrade in progress')
+    status.blocked('Series upgrade in progress')
 
 
 @hook('post-series-upgrade')
@@ -338,10 +339,10 @@ def install_etcd():
 
     if is_state('etcd.installed'):
         msg = 'Manual upgrade required. run-action snap-upgrade.'
-        status_set('blocked', msg)
+        status.blocked(msg)
         return
 
-    status_set('maintenance', 'Installing etcd.')
+    status.maintenance('Installing etcd.')
 
     channel = get_target_etcd_channel()
     if channel:
@@ -417,7 +418,7 @@ def register_node_with_leader(cluster):
     except EtcdCtl.CommandFailed:
         log('etcdctl.register failed, will retry')
         msg = 'Waiting to retry etcd registration'
-        status_set('waiting', msg)
+        status.waiting(msg)
         return
 
     render_config(bag)
@@ -452,7 +453,7 @@ def initialize_new_leader():
     etcdctl = EtcdCtl()
     status = etcdctl.cluster_health()
     if 'unhealthy' in status:
-        status_set('blocked', 'Cluster not healthy.')
+        status.blocked('Cluster not healthy.')
         return
     # We have a healthy leader, broadcast initial data-points for followers
     open_port(bag.port)
