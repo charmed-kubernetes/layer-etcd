@@ -697,9 +697,13 @@ def initial_nrpe_config(nagios=None):
 
 @when('etcd.installed')
 @when('nrpe-external-master.available')
-@when_not('etcd.nrpe.configured')
 @when_any('config.changed.nagios_context',
           'config.changed.nagios_servicegroups')
+def force_update_nrpe_config():
+    remove_state('etcd.nrpe.configured')
+
+
+@when_not('etcd.nrpe.configured')
 def update_nrpe_config(unused=None):
     # List of systemd services that will be checked
     services = ('snap.etcd.etcd',)
