@@ -154,6 +154,7 @@ def remove_states():
     remove_state('etcd.tls.secured')
     remove_state('etcd.ssl.placed')
     remove_state('etcd.ssl.exported')
+    remove_state('etcd.nrpe.configured')
 
 
 @hook('pre-series-upgrade')
@@ -698,6 +699,11 @@ def initial_nrpe_config(nagios=None):
 @when('nrpe-external-master.available')
 @when_any('config.changed.nagios_context',
           'config.changed.nagios_servicegroups')
+def force_update_nrpe_config():
+    remove_state('etcd.nrpe.configured')
+
+
+@when_not('etcd.nrpe.configured')
 def update_nrpe_config(unused=None):
     # List of systemd services that will be checked
     services = ('snap.etcd.etcd',)
@@ -745,6 +751,7 @@ def update_nrpe_config(unused=None):
     )
 
     nrpe_setup.write()
+    set_state('etcd.nrpe.configured')
 
 
 @when_not('nrpe-external-master.available')
