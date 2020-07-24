@@ -65,8 +65,14 @@ class EtcdDatabag:
         self.server_key = key_path
 
         # Cluster concerns
+        self.cluster = self.db.get('etcd.cluster')
         self.token = self.cluster_token()
         self.cluster_state = 'existing'
+
+    def set_cluster(self, value):
+        ''' Set the cluster string for peer registration '''
+        self.cluster = value
+        self.db.set('etcd.cluster', value)
 
     def cluster_token(self):
         ''' Getter to return the unique cluster token. '''
