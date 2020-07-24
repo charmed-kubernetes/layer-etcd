@@ -396,7 +396,7 @@ def register_node_with_leader(cluster):
 
         # Now register.
         resp = etcdctl.register(bag.__dict__)
-        bag.cluster = resp['cluster']
+        bag.set_cluster(resp['cluster'])
     except EtcdCtl.CommandFailed:
         log('etcdctl.register failed, will retry')
         msg = 'Waiting to retry etcd registration'
@@ -422,7 +422,7 @@ def initialize_new_leader():
     address = get_ingress_address('cluster')
     cluster_connection_string = get_connection_string([address],
                                                       bag.management_port)
-    bag.cluster = "{}={}".format(bag.unit_name, cluster_connection_string)
+    bag.set_cluster("{}={}".format(bag.unit_name, cluster_connection_string))
 
     render_config(bag)
     host.service_restart(bag.etcd_daemon)
