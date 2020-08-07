@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 # Recover from a majority failure in an etcd cluster
 # This action should be run after failed units are removed.
@@ -12,8 +12,8 @@ set -ex
 # After these steps, added units will join the cluster as expected
 
 ETCD_CONFIG=/var/snap/etcd/common/etcd.conf.yml
-START=$(date +%s)  # epoch format
-TIMEOUT=600 # 10 minute timeout
+START=$(date +%s) # script start time in epoch format
+TIMEOUT=600 # the allowable time to run script
 
 if [ ! -f "$ETCD_CONFIG" ]; then
   action-fail "Etcd config file does not exist: $ETCD_CONFIG"
@@ -32,7 +32,7 @@ sed -i 's/force-new-cluster.*/force-new-cluster: true/g' $ETCD_CONFIG
 LOADED_CONF=0
 while [ $LOADED_CONF -eq 0 ] && [ $(($(date +%s) - $START)) -lt $TIMEOUT ]
 do
-  # continue looping until logs load server configuration
+  # continue looping until etcd service loads configuration file
   LOADED_CONF=$(journalctl -o short -u snap.etcd.etcd.service --since=@$START \
                 | grep "Loading server configuration" \
                 | wc -l)
