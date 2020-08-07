@@ -59,3 +59,5 @@ restore:
       default: True
       description: |
         Dont backup any existing data, and skip directly to data restoration.
+recover:
+  description: Recover from a majority failure in Etcd cluster.

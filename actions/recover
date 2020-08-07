@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -ex
+
+# Recover from a majority failure in an etcd cluster
+# This action should be run after failed units are removed.
+# The basic flow is as follows:
+# 1. Change etcd config file to start a new cluster from
+#    scratch which allows new units to be added to cluster
+# 2. Restart the etcd service (which also starts a new cluster)
+# 3. Change config back to how it started
+# After these steps, added units will join the cluster as expected
+
+ETCD_CONFIG=/var/snap/etcd/common/etcd.conf.yml
+START_TIME=$(date +%s)
+
+if [ ! -f "$ETCD_CONFIG" ]; then
+  action-fail "Etcd config file does not exist: $ETCD_CONFIG"
+  exit
+fi
+
+# Step 1
+sed -i 's/force-new-cluster.*/force-new-cluster: true/g' $ETCD_CONFIG
+
+# Step 2
+/usr/sbin/service snap.etcd.etcd restart
+
+# wait for the updated config to be used in the restart process
+# before changing 'force-new-cluster' back to false
+LOADED_CONFIG_TIME=0
+while [ $START_TIME -gt $LOADED_CONFIG_TIME ]
+do
+  # if no line is found that matches, this will return a null string
+  # example log time format: "2020-08-06 15:08:29.985406"
+  # this time will be converted to a format parsable by 'date' command
+  LOADED_CONFIG_STR=$(journalctl -o cat -u snap.etcd.etcd.service |
+                      grep "etcdmain: Loading server configuration" |
+                      tail -1 |
+                      awk '{print $1 "T" $2}')
+  if [ ! -z $LOADED_CONFIG_STR ]; then
+    LOADED_CONFIG_TIME=$(date -d $LOADED_CONFIG_STR +%s)
+  fi
+sleep 1
+done
+
+# Step 3
+sed -i 's/force-new-cluster.*/force-new-cluster: false/g' $ETCD_CONFIG
