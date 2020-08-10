@@ -13,7 +13,7 @@ set -e
 
 ETCD_CONFIG=/var/snap/etcd/common/etcd.conf.yml
 START=$(date +%s) # script start time in epoch format
-TIMEOUT=600 # the allowable time to run script
+TIMEOUT=$(action-get timeout) # the allowable time to run script
 
 if [ ! -f "$ETCD_CONFIG" ]; then
   action-fail "Etcd config file does not exist: $ETCD_CONFIG"
