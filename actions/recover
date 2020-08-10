@@ -39,5 +39,10 @@ do
   sleep 1
 done
 
+# if $LOADED_CONF is still zero, the timeout has been reached
+if [ $LOADED_CONF -eq 0 ]; then
+  action-fail "Timeout reached. Failed to find 'configuration load' from logs."
+fi
+
 # Step 3
 sed -i 's/force-new-cluster.*/force-new-cluster: false/g' $ETCD_CONFIG
