@@ -19,7 +19,6 @@ from charms.templating.jinja2 import render
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
-from charmhelpers.core.hookenv import status_set
 from charmhelpers.core.hookenv import storage_get
 
 from charmhelpers.core.hookenv import application_version_set
@@ -30,6 +29,8 @@ from charmhelpers.core import hookenv
 from charmhelpers.core import host
 from charmhelpers.contrib.charmsupport import nrpe
 
+from charms.layer import status
+
 from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
@@ -38,6 +39,7 @@ from etcd_lib import get_ingress_address, get_ingress_addresses
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
+from subprocess import CalledProcessError
 from shutil import copyfile
 
 import os
@@ -76,18 +78,19 @@ def get_target_etcd_channel():
         if snap.is_installed('etcd'):
             return False
         else:
-            return '3.3/stable'
+            return '3.4/stable'
     else:
         return channel
 
 
 @when('etcd.installed')
 def snap_upgrade_notice():
-    status_set('blocked', 'Manual migration required. http://bit.ly/2oznAUZ')
+    status.blocked('Manual migration required. http://bit.ly/2oznAUZ')
 
 
 @when_any('etcd.registered', 'etcd.leader.configured')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def check_cluster_health():
     ''' report on the cluster health every 5 minutes'''
     etcdctl = EtcdCtl()
@@ -109,7 +112,7 @@ def check_cluster_health():
     bp = "{0} with {1} known peer{2}"
     status_message = bp.format(unit_health, peers, 's' if peers != 1 else '')
 
-    status_set('active', status_message)
+    status.active(status_message)
 
 
 @when('snap.installed.etcd')
@@ -123,7 +126,7 @@ def set_app_version():
 
 @when_not('certificates.available')
 def missing_relation_notice():
-    status_set('blocked', 'Missing relation to certificate authority.')
+    status.blocked('Missing relation to certificate authority.')
 
 
 @when('certificates.available')
@@ -153,12 +156,28 @@ def remove_states():
     remove_state('etcd.ssl.placed')
     remove_state('etcd.ssl.exported')
     remove_state('etcd.nrpe.configured')
+    # force a config re-render in case template changed
+    set_state('etcd.rerender-config')
+
+
+@hook('pre-series-upgrade')
+def pre_series_upgrade():
+    bag = EtcdDatabag()
+    host.service_pause(bag.etcd_daemon)
+    status.blocked('Series upgrade in progress')
+
+
+@hook('post-series-upgrade')
+def post_series_upgrade():
+    bag = EtcdDatabag()
+    host.service_resume(bag.etcd_daemon)
 
 
 @when('snap.installed.etcd')
 @when('leadership.is_leader')
 @when_any('config.changed.port', 'config.changed.management_port')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def leader_config_changed():
     ''' The leader executes the runtime configuration update for the cluster,
     as it is the controlling unit. Will render config, close and open ports and
@@ -185,8 +204,6 @@ def leader_config_changed():
             log(etcdctl.member_update(members[unit_name]['unit_id'], url))
         # Render just the leaders configuration with the new values.
         render_config()
-        # Close the previous client port and open the new one.
-        close_open_ports()
         address = get_ingress_address('cluster')
         leader_set({'leader_address':
                    get_connection_string([address],
@@ -201,22 +218,26 @@ def leader_config_changed():
 def follower_config_changed():
     ''' Follower units need to render the configuration file, close and open
     ports, and restart the etcd service. '''
-    bag = EtcdDatabag()
-    log('Rendering defaults file for {0}'.format(bag.unit_name))
-    # Render the follower's configuration with the new values.
-    render_config()
-    # Close the previous client port and open the new one.
-    close_open_ports()
+    set_state('etcd.rerender-config')
 
 
 @when('snap.installed.etcd')
 @when('config.changed.bind_to_all_interfaces')
+@when_not('upgrade.series.in-progress')
 def bind_to_all_interfaces_changed():
+    set_state('etcd.rerender-config')
+
+
+@when('etcd.rerender-config')
+@when_not('upgrade.series.in-progress')
+def rerender_config():
     ''' Config must be updated and service restarted '''
     bag = EtcdDatabag()
     log('Rendering config file for {0}'.format(bag.unit_name))
     render_config()
-    host.service_restart(bag.etcd_daemon)
+    if host.service_running(bag.etcd_daemon):
+        host.service_restart(bag.etcd_daemon)
+    set_app_version()
 
 
 @when('cluster.joined')
@@ -305,6 +326,12 @@ def send_cluster_details(proxy):
 
 
 @when('config.changed.channel')
+def channel_changed():
+    ''' Ensure that the config is updated if the channel changes. '''
+    set_state('etcd.rerender-config')
+
+
+@when('config.changed.channel')
 @when_not('etcd.installed')
 def snap_install():
     channel = get_target_etcd_channel()
@@ -323,10 +350,10 @@ def install_etcd():
 
     if is_state('etcd.installed'):
         msg = 'Manual upgrade required. run-action snap-upgrade.'
-        status_set('blocked', msg)
+        status.blocked(msg)
         return
 
-    status_set('maintenance', 'Installing etcd.')
+    status.maintenance('Installing etcd.')
 
     channel = get_target_etcd_channel()
     if channel:
@@ -335,6 +362,7 @@ def install_etcd():
 
 @when('snap.installed.etcd')
 @when_not('etcd.service-restart.configured')
+@when_not('upgrade.series.in-progress')
 def add_systemd_restart_always():
     template = 'templates/service-always-restart.systemd-latest.conf'
     service = 'snap.etcd.etcd'
@@ -370,6 +398,7 @@ def add_systemd_restart_always():
 @when_not('leadership.is_leader')
 @when_not('etcd.registered')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def register_node_with_leader(cluster):
     '''
     Control flow mechanism to perform self registration with the leader.
@@ -400,7 +429,7 @@ def register_node_with_leader(cluster):
     except EtcdCtl.CommandFailed:
         log('etcdctl.register failed, will retry')
         msg = 'Waiting to retry etcd registration'
-        status_set('waiting', msg)
+        status.waiting(msg)
         return
 
     render_config(bag)
@@ -413,6 +442,7 @@ def register_node_with_leader(cluster):
 @when('leadership.is_leader')
 @when_not('etcd.leader.configured')
 @when_not('etcd.installed')
+@when_not('upgrade.series.in-progress')
 def initialize_new_leader():
     ''' Create an initial cluster string to bring up a single member cluster of
     etcd, and set the leadership data so the followers can join this one. '''
@@ -434,7 +464,7 @@ def initialize_new_leader():
     etcdctl = EtcdCtl()
     status = etcdctl.cluster_health()
     if 'unhealthy' in status:
-        status_set('blocked', 'Cluster not healthy.')
+        status.blocked('Cluster not healthy.')
         return
     # We have a healthy leader, broadcast initial data-points for followers
     open_port(bag.port)
@@ -516,6 +546,7 @@ def tls_state_control():
 @when_any('tls_client.ca.written',
           'tls_client.server.certificate.written',
           'tls_client.client.certificate.written')
+@when_not('upgrade.series.in-progress')
 def tls_update():
     ''' Handle changes to the TLS data by ensuring that the service is
         restarted.
@@ -543,7 +574,12 @@ def render_default_user_ssl_exports():
     client_crt = opts['client_certificate_path']
     client_key = opts['client_key_path']
 
-    major, minor, _ = etcd_version().split('.')
+    etcd_ver = etcd_version()
+    if etcd_ver == 'n/a':
+        hookenv.log('Unable to determine version format for etcd SSL config',
+                    level=hookenv.ERROR)
+        return
+    major, minor, _ = etcd_ver.split('.')
 
     if int(major) >= 3 and int(minor) >= 3:
         evars = [
@@ -795,37 +831,50 @@ def render_config(bag=None):
 
     move_etcd_data_to_standard_location()
 
+    v2_conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
+    v3_conf_path = "{}/etcd.conf.yml".format(bag.etcd_conf_dir)
+
     # probe for 2.x compatibility
     if etcd_version().startswith('2.'):
-        conf_path = "{}/etcd.conf".format(bag.etcd_conf_dir)
-        render('etcd2.conf', conf_path, bag.__dict__, owner='root',
+        render('etcd2.conf', v2_conf_path, bag.__dict__, owner='root',
                group='root')
     # default to 3.x template behavior
     else:
-        conf_path = "{}/etcd.conf.yml".format(bag.etcd_conf_dir)
-        render('etcd3.conf', conf_path, bag.__dict__, owner='root',
+        render('etcd3.conf', v3_conf_path, bag.__dict__, owner='root',
                group='root')
+        if os.path.exists(v2_conf_path):
+            # v3 will fail if the v2 config is left in place
+            os.remove(v2_conf_path)
     # Close the previous client port and open the new one.
+    close_open_ports()
+    remove_state('etcd.rerender-config')
 
 
 def etcd_version():
     ''' This method surfaces the version from etcdctl '''
-    cmd = ['/snap/bin/etcd.etcdctl', 'version']
+    raw_output = None
     try:
+        # try v3
         raw_output = check_output(
-            cmd,
+            ['/snap/bin/etcd.etcdctl', 'version'],
             env={'ETCDCTL_API': '3'}
-        )
-        lines = raw_output.split(b'\n')
-        for line in lines:
-            if b'etcdctl version' in line:
-                # etcdctl version: 3.0.17
-                # Strip and massage the output
-                version = str(line, 'utf-8')
-                version = version.split('version')[-1].replace(':', '').strip()
+        ).decode('utf-8').strip()
+        if "No help topic for 'version'" in raw_output:
+            # handle v2
+            raw_output = check_output(
+                ['/snap/bin/etcd.etcdctl', '--version']
+            ).decode('utf-8').strip()
+        for line in raw_output.splitlines():
+            if 'etcdctl version' in line:
+                # "etcdctl version: 3.0.17" or "etcdctl version 2.3.8"
+                version = line.split()[-1]
                 return version
+        hookenv.log('Unable to find etcd version: {}'.format(raw_output),
+                    level=hookenv.ERROR)
         return 'n/a'
-    except: # NOQA
+    except (ValueError, CalledProcessError):
+        hookenv.log('Failed to get etcd version:\n'
+                    '{}'.format(traceback.format_exc()), level=hookenv.ERROR)
         return 'n/a'
 
 

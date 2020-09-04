@@ -32,9 +32,9 @@ resources:
     filename: etcd.snap
     description: Snap package of etcd
 series:
-  - xenial
-  - bionic
   - focal
+  - bionic
+  - xenial
 storage:
   data:
    type: block

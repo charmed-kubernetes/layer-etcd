@@ -65,7 +65,7 @@ class EtcdDatabag:
         self.server_key = key_path
 
         # Cluster concerns
-        self.cluster = self.db.get('etcd.cluster')
+        self.cluster = self.db.get('etcd.cluster', '')
         self.token = self.cluster_token()
         self.cluster_state = 'existing'
 
