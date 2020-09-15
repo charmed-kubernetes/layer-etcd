@@ -448,7 +448,7 @@ def initialize_new_leader():
     etcd, and set the leadership data so the followers can join this one. '''
     bag = EtcdDatabag()
     bag.token = bag.token
-    bag.cluster_state = 'new'
+    bag.set_cluster_state('new')
     address = get_ingress_address('cluster')
     cluster_connection_string = get_connection_string([address],
                                                       bag.management_port)
