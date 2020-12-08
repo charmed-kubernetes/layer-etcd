@@ -45,7 +45,7 @@ snapshot:
       description: Location to save the etcd snapshot.
     keys-version:
       type: string
-      default: 'v2'
+      default: 'v3'
       description: Version of keys to snapshoot. Allowed values 'v3' or 'v2'.
 restore:
   description: Restore an etcd cluster's data from a snapshot tarball.
