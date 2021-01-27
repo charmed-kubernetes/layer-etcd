@@ -10,6 +10,8 @@ from charms.reactive import when_any
 from charms.reactive import when_not
 from charms.reactive import is_state
 from charms.reactive import set_state
+from charms.reactive import is_flag_set
+from charms.reactive import clear_flag
 from charms.reactive import remove_state
 from charms.reactive import hook
 from charms.reactive.helpers import data_changed
@@ -27,6 +29,7 @@ from charmhelpers.core.hookenv import close_port
 from charmhelpers.core.host import write_file
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
+from charmhelpers.core import unitdata
 from charmhelpers.contrib.charmsupport import nrpe
 
 from charms.layer import status
@@ -48,6 +51,8 @@ import socket
 import time
 import traceback
 import yaml
+import shutil
+import random
 
 
 # Layer Note:   the @when_not etcd.installed state checks are relating to
@@ -600,6 +605,45 @@ def render_default_user_ssl_exports():
         fp.writelines(evars)
 
     set_state('etcd.ssl.exported')
+
+
+def force_rejoin():
+    """Wipe local data and rejoin new cluster formed by leader unit
+
+    This action is required if leader unit performed snapshot restore. All
+    other members must remove their local data and previous cluster
+    identities and join newly formed, restored, cluster.
+    """
+    log('Wiping local storage and rejoining cluster')
+    conf = EtcdDatabag()
+    host.service_stop(conf.etcd_daemon)
+    clear_flag('etcd.registered')
+    etcd_data = os.path.join(conf.storage_path(), 'member')
+    if os.path.exists(etcd_data):
+        shutil.rmtree(etcd_data)
+    for _ in range(11):
+        # We need randomized back-off timer because only one unit can be
+        # joining at the same time
+        time.sleep(random.randint(1, 10))
+        register_node_with_leader(None)
+        if is_flag_set('etcd.registered'):
+            break
+
+
+@hook('cluster-relation-changed')
+def update_relation(cluster=None):
+    """React to cluster relation change"""
+    force_rejoin_request = hookenv.relation_get('force_rejoin')
+    local_data = unitdata.kv()
+    last_request = local_data.get('force_rejoin', default='')
+
+    # `force_rejoin` value is UUID. Every time a leader of the cluster
+    # requests other members to force rejoin new cluster it will put new
+    # unique value into `force_rejoin` variable.
+    if force_rejoin_request and force_rejoin_request != last_request:
+        hookenv.log("Force rejoin requested")
+        local_data.set('force_rejoin', force_rejoin_request)
+        force_rejoin()
 
 
 @hook('cluster-relation-broken')
