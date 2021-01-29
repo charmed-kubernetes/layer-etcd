@@ -57,7 +57,7 @@ TARGET_PATH = action_get('target')
 def preflight_check():
     ''' Check preconditions for data restoration '''
     if not is_leader():
-        function_fail('This action can be run only on the leader unit')
+        function_fail('This action can only be run on the leader unit')
         sys.exit(0)
     if not SNAPSHOT_ARCHIVE:
         function_fail({'result.failed': 'Missing snapshot. See: README.md'})

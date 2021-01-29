@@ -44,6 +44,7 @@ from subprocess import check_call
 from subprocess import check_output
 from subprocess import CalledProcessError
 from shutil import copyfile
+from uuid import uuid4
 
 import os
 import charms.leadership  # noqa
@@ -627,6 +628,10 @@ def force_rejoin():
         time.sleep(random.randint(1, 10))
         register_node_with_leader(None)
         if is_flag_set('etcd.registered'):
+            log('Successfully rejoined the cluster')
+            # Bump other members to run check_cluster_health and update status
+            hookenv.relation_set(hookenv.peer_relation_id(),
+                                 cluster_update=uuid4())
             break
 
 
@@ -644,6 +649,7 @@ def update_relation(cluster=None):
         hookenv.log("Force rejoin requested")
         local_data.set('force_rejoin', force_rejoin_request)
         force_rejoin()
+    check_cluster_health()
 
 
 @hook('cluster-relation-broken')
