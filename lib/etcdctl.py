@@ -114,12 +114,14 @@ class EtcdCtl:
             log('Failed to update member {}'.format(unit_id), 'WARNING')
         return out
 
-    def cluster_health(self):
+    def cluster_health(self, output_only=False):
         ''' Returns the output of etcdctl cluster-health as a python dict
         organized by topical information with detailed unit output '''
         health = {}
         try:
             out = self.run('cluster-health', endpoints=False, api=2)
+            if output_only:
+                return out
             health_output = out.strip('\n').split('\n')
             health['status'] = health_output[-1]
             health['units'] = health_output[0:-2]
