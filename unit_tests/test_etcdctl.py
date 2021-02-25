@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
-from uuid import uuid4
+from unittest.mock import patch
 
 from etcdctl import (
     EtcdCtl,
@@ -8,12 +7,16 @@ from etcdctl import (
     get_connection_string,
 )  # noqa
 
+from etcd_databag import EtcdDatabag
+
 from reactive.etcd import (
-    host,
     pre_series_upgrade,
     post_series_upgrade,
     status,
-    update_relation,
+    clear_flag,
+    host,
+    force_rejoin_requested,
+    force_rejoin,
 )
 
 
@@ -121,48 +124,29 @@ class TestEtcdCtl:
         assert status.blocked.call_count == 1
 
     @patch('reactive.etcd.force_rejoin')
-    @patch('reactive.etcd.unitdata.kv')
-    @patch('reactive.etcd.hookenv.relation_get')
-    def test_rejoin_trigger(self, relation_get_mock, kv_mock,
+    @patch('reactive.etcd.check_cluster_health')
+    def test_rejoin_trigger(self, cluster_health_mock,
                             rejoin_mock):
-        """Test that unit will trigger `force_rejoin` on new request"""
-        local_storage_mock = MagicMock()
-        kv_mock.return_value = local_storage_mock
+        """Test that unit will trigger force_rejoin on new request"""
+        force_rejoin_requested()
 
-        old_request_id = uuid4().hex
-        new_request_id = uuid4().hex
-        local_storage_mock.get.return_value = old_request_id
-        relation_get_mock.return_value = new_request_id
-
-        update_relation()
-        local_storage_mock.set.assert_called_with('force_rejoin', new_request_id)
         rejoin_mock.assert_called_once()
+        cluster_health_mock.assert_called_once()
 
-    @patch('reactive.etcd.force_rejoin')
-    @patch('reactive.etcd.unitdata.kv')
-    @patch('reactive.etcd.hookenv.relation_get')
-    def test_dont_rejoin_on_same_request(self, relation_get_mock, kv_mock,
-                                         rejoin_mock):
-        """Test that unit wont try to `force_rejoin` without new request"""
-        local_storage_mock = MagicMock()
-        kv_mock.return_value = local_storage_mock
+    @patch('reactive.etcd.register_node_with_leader')
+    @patch('os.path.exists')
+    @patch('shutil.rmtree')
+    @patch('os.path.join')
+    @patch('time.sleep')
+    def test_force_rejoin(self, sleep, path_join, rmtree, path_exists,
+                          register_node):
+        """Test that force_rejoin performs required steps."""
+        data_dir = '/foo/bar'
+        path_exists.return_value = True
+        path_join.return_value = data_dir
+        force_rejoin()
 
-        request_id = uuid4()
-
-        local_storage_mock.get.return_value = request_id
-        relation_get_mock.return_value = request_id
-
-        update_relation()
-
-        rejoin_mock.assert_not_called()
-
-    @patch('reactive.etcd.force_rejoin')
-    @patch('reactive.etcd.hookenv.relation_get')
-    def test_dont_rejoin_on_no_request(self, relation_get_mock, rejoin_mock):
-        """Test that unit wont try to `force_rejoin` if there's no request"""
-
-        relation_get_mock.return_value = None
-
-        update_relation()
-
-        rejoin_mock.assert_not_called()
+        host.service_stop.assert_called_with(EtcdDatabag().etcd_daemon)
+        clear_flag.assert_called_with('etcd.registered')
+        rmtree.assert_called_with(data_dir)
+        register_node.assert_called()

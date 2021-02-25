@@ -29,7 +29,6 @@ from charmhelpers.core.hookenv import close_port
 from charmhelpers.core.host import write_file
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
-from charmhelpers.core import unitdata
 from charmhelpers.contrib.charmsupport import nrpe
 
 from charms.layer import status
@@ -44,7 +43,6 @@ from subprocess import check_call
 from subprocess import check_output
 from subprocess import CalledProcessError
 from shutil import copyfile
-from uuid import uuid4
 
 import os
 import charms.leadership  # noqa
@@ -629,26 +627,13 @@ def force_rejoin():
         register_node_with_leader(None)
         if is_flag_set('etcd.registered'):
             log('Successfully rejoined the cluster')
-            # Bump other members to run check_cluster_health and update status
-            hookenv.relation_set(hookenv.peer_relation_id(),
-                                 cluster_update=uuid4())
             break
 
 
-@hook('cluster-relation-changed')
-def update_relation(cluster=None):
-    """React to cluster relation change"""
-    force_rejoin_request = hookenv.relation_get('force_rejoin')
-    local_data = unitdata.kv()
-    last_request = local_data.get('force_rejoin', default='')
-
-    # `force_rejoin` value is UUID. Every time a leader of the cluster
-    # requests other members to force rejoin new cluster it will put new
-    # unique value into `force_rejoin` variable.
-    if force_rejoin_request and force_rejoin_request != last_request:
-        hookenv.log("Force rejoin requested")
-        local_data.set('force_rejoin', force_rejoin_request)
-        force_rejoin()
+@when('leadership.changed.force_rejoin')
+@when_not('leadership.is_leader')
+def force_rejoin_requested():
+    force_rejoin()
     check_cluster_health()
 
 

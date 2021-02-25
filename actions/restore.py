@@ -238,12 +238,8 @@ def dismantle_cluster():
 def rebuild_cluster():
     """Signal other etcd units to rejoin new cluster."""
     log('Requesting peer members to rejoin cluster')
-    peer_rel_id = hookenv.peer_relation_id()
     rejoin_request = uuid4().hex
-    hookenv.relation_set(peer_rel_id, force_rejoin=rejoin_request)
-    local_db = unitdata.kv()
-
-    local_db.set('force_rejoin', rejoin_request)
+    hookenv.leader_set(force_rejoin=rejoin_request)
 
 
 if __name__ == '__main__':
