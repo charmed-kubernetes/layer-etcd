@@ -120,12 +120,24 @@ def defrag():
         action_fail_now(e.output)
 
 
+def health():
+    '''Call etcdctl cluster-health
+
+    '''
+    try:
+        output = CTL.cluster_health(True)
+        action_set(dict(output=output))
+    except subprocess.CalledProcessError as e:
+        action_fail_now(e.output)
+
+
 if __name__ == '__main__':
     ACTIONS = {
         'alarm-disarm': alarm_disarm,
         'alarm-list': alarm_list,
         'compact': compact,
         'defrag': defrag,
+        'health': health,
     }
 
     action = action_name()
