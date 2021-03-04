@@ -1,4 +1,6 @@
-from charmhelpers.core.hookenv import network_get, unit_private_ip
+from netaddr import IPAddress, IPNetwork
+
+from charmhelpers.core.hookenv import config, network_get, unit_private_ip
 
 
 def get_ingress_addresses(endpoint_name):
@@ -66,3 +68,25 @@ def get_bind_address(endpoint_name):
                     return bind_addresses[0]['addresses'][0]['address']
 
     return unit_private_ip()
+
+
+def etcd_reachable_from_endpoint(endpoint_name):
+    """Check if etcd can be reached by unit on the other end of the relation.
+
+    :param endpoint_name: Name of the relation endpoint
+    :return: True/False depending on whether the etcd service can be reached
+    """
+    if config(scope='bind_to_all_interfaces'):
+        return True
+
+    endpoint_addresses = network_get(endpoint_name).get('addresses', [])
+    if not endpoint_addresses:
+        return False
+
+    ingress_address = get_ingress_address('db')
+
+    for cidr in [IPNetwork(address['cidr']) for address in endpoint_addresses]:
+        if IPAddress(ingress_address) in cidr:
+            return True
+
+    return False

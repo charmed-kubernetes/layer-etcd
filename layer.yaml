@@ -11,6 +11,7 @@ includes:
   - 'layer:status'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
+  - 'interface:prometheus-manual'
   - 'interface:nrpe-external-master'
 exclude:
   - .coverage

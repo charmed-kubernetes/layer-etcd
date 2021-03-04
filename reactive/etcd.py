@@ -16,7 +16,11 @@ from charms.reactive.helpers import data_changed
 
 from charms.templating.jinja2 import render
 
+from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
+from charmhelpers.core.hookenv import DEBUG
+from charmhelpers.core.hookenv import WARNING
+
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import storage_get
@@ -34,7 +38,11 @@ from charms.layer import status
 from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
-from etcd_lib import get_ingress_address, get_ingress_addresses
+from etcd_lib import (
+    get_ingress_address,
+    get_ingress_addresses,
+    etcd_reachable_from_endpoint
+)
 
 from shlex import split
 from subprocess import check_call
@@ -784,6 +792,35 @@ def remove_nrpe_config(nagios=None):
 
     for service in services:
         nrpe_setup.remove_check(shortname=service)
+
+
+@when('endpoint.prometheus.joined',
+      'leadership.is_leader',
+      'certificates.ca.available')
+def register_prometheus_jobs():
+    log('Registering Prometheus metrics collection.')
+    prometheus = endpoint_from_flag('endpoint.prometheus.joined')
+    tls = endpoint_from_flag('certificates.ca.available')
+    cluster = endpoint_from_flag('cluster.joined')
+
+    if not etcd_reachable_from_endpoint(prometheus.endpoint_name):
+        log('Aborting Prometheus metrics collection. Etcd is not reachable by'
+            ' prometheus client', WARNING)
+        return
+
+    peer_ips = cluster.get_db_ingress_addresses()
+    peer_ips.append(get_ingress_address('db'))
+    targets = ["{}:{}".format(ip, config('port')) for ip in peer_ips]
+    log('Configuring Prometheus scrape targets: {}'.format(targets), DEBUG)
+    prometheus.register_job(job_name='etcd',
+                            ca_cert=tls.root_ca_cert,
+                            job_data={
+                                'scheme': 'https',
+                                'tls_config': {'ca_file': '__ca_file__'},
+                                'static_configs': [
+                                    {'targets': targets},
+                                ]
+                            })
 
 
 def volume_is_mounted(volume):

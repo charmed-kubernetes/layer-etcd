@@ -15,6 +15,8 @@ provides:
     interface: etcd
   proxy:
     interface: etcd-proxy
+  prometheus:
+    interface: prometheus-manual
 peers:
   cluster:
     interface: etcd
