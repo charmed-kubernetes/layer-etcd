@@ -808,7 +808,7 @@ def register_prometheus_jobs():
             ' prometheus client', WARNING)
         return
 
-    peer_ips = cluster.get_db_ingress_addresses()
+    peer_ips = cluster.get_db_ingress_addresses() if cluster else []
     peer_ips.append(get_ingress_address('db'))
     targets = ["{}:{}".format(ip, config('port')) for ip in peer_ips]
     log('Configuring Prometheus scrape targets: {}'.format(targets), DEBUG)
