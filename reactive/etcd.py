@@ -11,6 +11,8 @@ from charms.reactive import when_not
 from charms.reactive import is_state
 from charms.reactive import set_state
 from charms.reactive import remove_state
+from charms.reactive import set_flag
+from charms.reactive import clear_flag
 from charms.reactive import hook
 from charms.reactive.helpers import data_changed
 
@@ -28,6 +30,7 @@ from charmhelpers.core.hookenv import storage_get
 from charmhelpers.core.hookenv import application_version_set
 from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import close_port
+from charmhelpers.core.hookenv import resource_get
 from charmhelpers.core.host import write_file
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
@@ -50,6 +53,7 @@ from subprocess import check_output
 from subprocess import CalledProcessError
 from shutil import copyfile
 
+import json
 import os
 import charms.leadership  # noqa
 import socket
@@ -69,6 +73,8 @@ import yaml
 # need because our bin names contain them (e.g. 'snap.foo.daemon'). The
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
 nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
+
+GRAFANA_DASHBOARD_NAME = 'etcd'
 
 
 def get_target_etcd_channel():
@@ -800,7 +806,6 @@ def remove_nrpe_config(nagios=None):
 def register_prometheus_jobs():
     log('Registering Prometheus metrics collection.')
     prometheus = endpoint_from_flag('endpoint.prometheus.joined')
-    tls = endpoint_from_flag('certificates.ca.available')
     cluster = endpoint_from_flag('cluster.joined')
 
     if not etcd_reachable_from_endpoint(prometheus.endpoint_name):
@@ -813,14 +818,55 @@ def register_prometheus_jobs():
     targets = ["{}:{}".format(ip, config('port')) for ip in peer_ips]
     log('Configuring Prometheus scrape targets: {}'.format(targets), DEBUG)
     prometheus.register_job(job_name='etcd',
-                            ca_cert=tls.root_ca_cert,
                             job_data={
                                 'scheme': 'https',
-                                'tls_config': {'ca_file': '__ca_file__'},
                                 'static_configs': [
                                     {'targets': targets},
                                 ]
                             })
+    set_flag('prometheus.configured')
+
+
+@when(
+    "prometheus.configured",
+    "endpoint.grafana.joined",
+    "leadership.is_leader"
+)
+@when_not("grafana.configured")
+def register_grafana_dashboard():
+    grafana = endpoint_from_flag("endpoint.grafana.joined")
+    log("Loading grafana dashboard", level=hookenv.DEBUG)
+    dashboard_path = resource_get('dashboard')
+    if not dashboard_path:
+        log("Failed to register Grafana dashboard. Resource 'dashboard' is "
+            "missing.", level=hookenv.ERROR)
+        return
+
+    dashboard = render_grafana_dashboard(dashboard_path)
+    log("Rendered Grafana dashboard:\n{}".format(dashboard),
+        level=hookenv.DEBUG)
+    grafana.register_dashboard(name=GRAFANA_DASHBOARD_NAME,
+                               dashboard=dashboard)
+    log('Grafana dashboard "{}" registered.'.format(GRAFANA_DASHBOARD_NAME))
+    set_flag("grafana.configured")
+
+
+def render_grafana_dashboard(dashboard_path):
+    datasource = "{} - Juju generated source".format(
+        hookenv.config("prometheus_datasource")
+    )
+    dashboard_data = ''
+    with open(dashboard_path, 'r') as dashboard_file:
+        for line in dashboard_file:
+            dashboard_data += line.replace('${DS_PROMETHEUS}', datasource)
+
+    dashboard = json.loads(dashboard_data)
+    return dashboard
+
+
+@when("endpoint.grafana.departed", "grafana.configured")
+def unregister_grafana_dashboard():
+    clear_flag("grafana.configured")
 
 
 def volume_is_mounted(volume):

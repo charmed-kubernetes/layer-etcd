@@ -17,6 +17,8 @@ provides:
     interface: etcd-proxy
   prometheus:
     interface: prometheus-manual
+  grafana:
+    interface: grafana-dashboard
 peers:
   cluster:
     interface: etcd
@@ -33,6 +35,10 @@ resources:
     type: file
     filename: etcd.snap
     description: Snap package of etcd
+  dashboard:
+    type: file
+    filename: dashboard.json
+    description: Grafana dashboard template
 series:
   - focal
   - bionic

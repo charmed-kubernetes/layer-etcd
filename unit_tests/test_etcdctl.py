@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, mock_open, MagicMock
 
 from etcdctl import (
     EtcdCtl,
@@ -8,9 +8,17 @@ from etcdctl import (
 )  # noqa
 
 from reactive.etcd import (
+    config,
+    endpoint_from_flag,
+    GRAFANA_DASHBOARD_NAME,
+    hookenv,
     host,
+    log,
     pre_series_upgrade,
     post_series_upgrade,
+    resource_get,
+    register_grafana_dashboard,
+    render_grafana_dashboard,
     status,
 )
 
@@ -104,6 +112,54 @@ class TestEtcdCtl:
             get_connection_string(['1.1.1.1'], '1111') ==
             'https://1.1.1.1:1111'
         )
+
+    def test_render_grafana_dashboard(self):
+        """Test loading of Grafana dashboard."""
+        datasource = 'prometheus'
+        config.return_value = datasource
+        raw_template = '{"panels": [{"datasource": "${DS_PROMETHEUS}"}]}'
+        expected_dashboard = {'panels': [
+            {'datasource': '{} - Juju generated source'.format(datasource)}
+        ]}
+
+        with patch('builtins.open', mock_open(read_data=raw_template)):
+            rendered_dashboard = render_grafana_dashboard('./foo')
+
+        assert rendered_dashboard == expected_dashboard
+
+    @patch('reactive.etcd.render_grafana_dashboard')
+    @patch('reactive.etcd.set_flag')
+    def test_register_grafana_dashboard(self, set_flag_mock,
+                                        mock_dashboard_render):
+        """Register grafana dashboard."""
+        dashboard_file = '/foo/bar'
+        dashboard_json = {'foo': 'bar'}
+        resource_get.return_value = dashboard_file
+        mock_dashboard_render.return_value = dashboard_json
+        grafana = MagicMock()
+        endpoint_from_flag.return_value = grafana
+
+        register_grafana_dashboard()
+
+        mock_dashboard_render.assert_called_with(dashboard_file)
+        grafana.register_dashboard.assert_called_with(
+            name=GRAFANA_DASHBOARD_NAME, dashboard=dashboard_json)
+        set_flag_mock.assert_called_with('grafana.configured')
+
+    @patch('reactive.etcd.set_flag')
+    def test_register_grafana_dashboard_missing_resource(self, set_flag_mock):
+        """Log error if 'dashboard' resource is missing."""
+        resource_get.return_value = None
+        grafana = MagicMock()
+        endpoint_from_flag.return_value = grafana
+        expected_err = "Failed to register Grafana dashboard. Resource " \
+                       "'dashboard' is missing."
+
+        register_grafana_dashboard()
+
+        log.assert_called_with(expected_err, level=hookenv.ERROR)
+        grafana.register_dashboard.assert_not_called()
+        set_flag_mock.assert_not_called()
 
     def test_series_upgrade(self):
         assert host.service_pause.call_count == 0
