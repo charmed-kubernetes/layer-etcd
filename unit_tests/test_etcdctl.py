@@ -117,15 +117,53 @@ class TestEtcdCtl:
         """Test loading of Grafana dashboard."""
         datasource = 'prometheus'
         config.return_value = datasource
-        raw_template = '{"panels": [{"datasource": "${DS_PROMETHEUS}"}]}'
-        expected_dashboard = {'panels': [
-            {'datasource': '{} - Juju generated source'.format(datasource)}
-        ]}
+        raw_template = '{"__inputs": [{"type": "datasource", ' \
+                       '"pluginId": "prometheus"}],' \
+                       '"panels": [{"datasource": "${DS_PROMETHEUS}"}]}'
+        expected_dashboard = {
+            '__inputs': [{'type': 'datasource', 'pluginId': 'prometheus'}],
+            'panels': [
+                {'datasource': '{} - Juju generated source'.format(datasource)}
+            ]}
 
         with patch('builtins.open', mock_open(read_data=raw_template)):
             rendered_dashboard = render_grafana_dashboard('./foo')
 
         assert rendered_dashboard == expected_dashboard
+
+    def test_render_grafana_dashboard_fail_multiple_inputs(self):
+        """Fail dashboard loading if there's more than one user input"""
+        datasource = 'prometheus'
+        config.return_value = datasource
+        raw_template = '{"__inputs": [{"type": "bar"}, {"type": "foo"}],' \
+                       '"panels": [{"datasource": "${DS_PROMETHEUS}"}]}'
+        expected_dashboard = {}
+        expected_err = 'Unable to render Grafana dashboard template that ' \
+                       'requires more than one user input. (See Charm ' \
+                       'documentation)'
+
+        with patch('builtins.open', mock_open(read_data=raw_template)):
+            rendered_dashboard = render_grafana_dashboard('./foo')
+
+        assert rendered_dashboard == expected_dashboard
+        log.assert_called_with(expected_err, hookenv.ERROR)
+
+    def test_render_grafana_dashboard_fail_unexpected_input(self):
+        """Fail dashboard loading if user input isn't Prometheus Datasource"""
+        datasource = 'prometheus'
+        config.return_value = datasource
+        raw_template = '{"__inputs": [{"type": "foo", "pluginId": "bar"}],' \
+                       '"panels": [{"datasource": "${DS_PROMETHEUS}"}]}'
+        expected_dashboard = {}
+        expected_err = 'Unable to render Grafana dashboard template. The ' \
+                       'only supported user input is Prometheus datasource.' \
+                       ' (see Charm documentation)'
+
+        with patch('builtins.open', mock_open(read_data=raw_template)):
+            rendered_dashboard = render_grafana_dashboard('./foo')
+
+        assert rendered_dashboard == expected_dashboard
+        log.assert_called_with(expected_err, hookenv.ERROR)
 
     @patch('reactive.etcd.render_grafana_dashboard')
     @patch('reactive.etcd.set_flag')

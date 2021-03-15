@@ -56,6 +56,7 @@ from shutil import copyfile
 import json
 import os
 import charms.leadership  # noqa
+import re
 import socket
 import time
 import traceback
@@ -843,7 +844,12 @@ def register_grafana_dashboard():
         return
 
     dashboard = render_grafana_dashboard(dashboard_path)
-    log("Rendered Grafana dashboard:\n{}".format(dashboard),
+    if not dashboard:
+        log('Failed to render attached grafana dashboard template.',
+            level=hookenv.ERROR)
+        return
+
+    log("Rendered Grafana dashboard:\n{}".format(json.dumps(dashboard)),
         level=hookenv.DEBUG)
     grafana.register_dashboard(name=GRAFANA_DASHBOARD_NAME,
                                dashboard=dashboard)
@@ -852,15 +858,52 @@ def register_grafana_dashboard():
 
 
 def render_grafana_dashboard(dashboard_path):
+    """Load grafana dashboard json model and insert prometheus datasource.
+
+    This function is capable of handling json models with single user
+    input that defines "Prometheus datasource". Models with more than one
+    input or with input that is not "Prometheus datasource" will result in
+    logged error and empty dict will be returned.
+
+    :param dashboard_path: Path to file containing Grafana dashboard json model
+    :return: Grafana dashboard json model as a dict.
+    """
     datasource = "{} - Juju generated source".format(
         hookenv.config("prometheus_datasource")
     )
+
+    # Note(mkalcok): Grafana dashboard json models can have user inputs defined
+    # in '__inputs' list and related placeholders in format '${INPUT_NAME}'.
+    # When user loads dashboard via web UI, he's prompted to enter input values
+    # which are then inserted instead of placeholders.
+    # We are only capable of handling dashboards with single input that defines
+    # prometheus datasource. To avoid complicated parsing or double loading
+    # of dashboard model, we naively replace every input placeholder
+    # '${.+}' with "datasource" during the file loading and then we verify that
+    # the dashboard model contained only single user input (prometheus
+    # datasource).
+    user_input = re.compile(r'\${.+?}')
     dashboard_data = ''
     with open(dashboard_path, 'r') as dashboard_file:
         for line in dashboard_file:
-            dashboard_data += line.replace('${DS_PROMETHEUS}', datasource)
+            dashboard_data += re.sub(user_input, datasource, line)
 
     dashboard = json.loads(dashboard_data)
+
+    input_fields = dashboard.get('__inputs')
+    if input_fields:
+        input_field = input_fields[0]
+        if len(input_fields) > 1:
+            log('Unable to render Grafana dashboard template that requires '
+                'more than one user input. (See Charm documentation)',
+                hookenv.ERROR)
+            dashboard = {}
+        elif not (input_field.get('type') == 'datasource' and
+                  input_field.get('pluginId') == 'prometheus'):
+            log('Unable to render Grafana dashboard template. The only '
+                'supported user input is Prometheus datasource. (see Charm '
+                'documentation)', hookenv.ERROR)
+            dashboard = {}
     return dashboard
 
 
