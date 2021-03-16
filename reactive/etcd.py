@@ -47,6 +47,8 @@ from etcd_lib import (
     etcd_reachable_from_endpoint
 )
 
+from jinja2 import Environment, FileSystemLoader
+from jinja2.exceptions import TemplateNotFound
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
@@ -56,7 +58,6 @@ from shutil import copyfile
 import json
 import os
 import charms.leadership  # noqa
-import re
 import socket
 import time
 import traceback
@@ -75,6 +76,7 @@ import yaml
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
 nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
+GRAFANA_DASHBOARD_FILE = 'grafana_dashboard.json.j2'
 GRAFANA_DASHBOARD_NAME = 'etcd'
 
 
@@ -843,11 +845,7 @@ def register_grafana_dashboard():
             "missing.", level=hookenv.ERROR)
         return
 
-    dashboard = render_grafana_dashboard(dashboard_path)
-    if not dashboard:
-        log('Failed to render attached grafana dashboard template.',
-            level=hookenv.ERROR)
-        return
+    dashboard = render_grafana_dashboard()
 
     log("Rendered Grafana dashboard:\n{}".format(json.dumps(dashboard)),
         level=hookenv.DEBUG)
@@ -857,7 +855,7 @@ def register_grafana_dashboard():
     set_flag("grafana.configured")
 
 
-def render_grafana_dashboard(dashboard_path):
+def render_grafana_dashboard():
     """Load grafana dashboard json model and insert prometheus datasource.
 
     This function is capable of handling json models with single user
@@ -869,42 +867,24 @@ def render_grafana_dashboard(dashboard_path):
     :return: Grafana dashboard json model as a dict.
     """
     datasource = "{} - Juju generated source".format(
-        hookenv.config("prometheus_datasource")
-    )
+        config("prometheus_datasource"))
 
-    # Note(mkalcok): Grafana dashboard json models can have user inputs defined
-    # in '__inputs' list and related placeholders in format '${INPUT_NAME}'.
-    # When user loads dashboard via web UI, he's prompted to enter input values
-    # which are then inserted instead of placeholders.
-    # We are only capable of handling dashboards with single input that defines
-    # prometheus datasource. To avoid complicated parsing or double loading
-    # of dashboard model, we naively replace every input placeholder
-    # '${.+}' with "datasource" during the file loading and then we verify that
-    # the dashboard model contained only single user input (prometheus
-    # datasource).
-    user_input = re.compile(r'\${.+?}')
-    dashboard_data = ''
-    with open(dashboard_path, 'r') as dashboard_file:
-        for line in dashboard_file:
-            dashboard_data += re.sub(user_input, datasource, line)
+    template_folder = os.path.join(hookenv.charm_dir(),
+                                   "templates/")
 
-    dashboard = json.loads(dashboard_data)
-
-    input_fields = dashboard.get('__inputs')
-    if input_fields:
-        input_field = input_fields[0]
-        if len(input_fields) > 1:
-            log('Unable to render Grafana dashboard template that requires '
-                'more than one user input. (See Charm documentation)',
-                hookenv.ERROR)
-            dashboard = {}
-        elif not (input_field.get('type') == 'datasource' and
-                  input_field.get('pluginId') == 'prometheus'):
-            log('Unable to render Grafana dashboard template. The only '
-                'supported user input is Prometheus datasource. (see Charm '
-                'documentation)', hookenv.ERROR)
-            dashboard = {}
-    return dashboard
+    environment = Environment(loader=FileSystemLoader(template_folder),
+                              variable_start_string="<<",
+                              variable_end_string=">>"
+                              )
+    try:
+        template = environment.get_template(GRAFANA_DASHBOARD_FILE)
+    except TemplateNotFound as exc:
+        hookenv.log(
+            "Could not load template {} from {}".format(GRAFANA_DASHBOARD_FILE,
+                                                        template_folder)
+        )
+        raise exc
+    return json.loads(template.render({'datasource': datasource}))
 
 
 @when("endpoint.grafana.departed", "grafana.configured")
