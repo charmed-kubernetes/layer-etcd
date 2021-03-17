@@ -1,6 +1,5 @@
-from netaddr import IPAddress, IPNetwork
-
 from charmhelpers.core.hookenv import config, network_get, unit_private_ip
+from charmhelpers.contrib.network.ip import is_address_in_network
 
 
 def get_ingress_addresses(endpoint_name):
@@ -85,8 +84,8 @@ def etcd_reachable_from_endpoint(endpoint_name):
 
     ingress_address = get_ingress_address('db')
 
-    for cidr in [IPNetwork(address['cidr']) for address in endpoint_addresses]:
-        if IPAddress(ingress_address) in cidr:
+    for cidr in [address['cidr'] for address in endpoint_addresses]:
+        if is_address_in_network(cidr, ingress_address):
             return True
 
     return False
