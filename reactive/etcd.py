@@ -30,7 +30,6 @@ from charmhelpers.core.hookenv import storage_get
 from charmhelpers.core.hookenv import application_version_set
 from charmhelpers.core.hookenv import open_port
 from charmhelpers.core.hookenv import close_port
-from charmhelpers.core.hookenv import resource_get
 from charmhelpers.core.host import write_file
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
@@ -839,11 +838,6 @@ def register_prometheus_jobs():
 def register_grafana_dashboard():
     grafana = endpoint_from_flag("endpoint.grafana.joined")
     log("Loading grafana dashboard", level=hookenv.DEBUG)
-    dashboard_path = resource_get('dashboard')
-    if not dashboard_path:
-        log("Failed to register Grafana dashboard. Resource 'dashboard' is "
-            "missing.", level=hookenv.ERROR)
-        return
 
     dashboard = render_grafana_dashboard()
 

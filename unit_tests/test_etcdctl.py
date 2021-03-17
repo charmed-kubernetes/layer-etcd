@@ -18,7 +18,6 @@ from reactive.etcd import (
     log,
     pre_series_upgrade,
     post_series_upgrade,
-    resource_get,
     register_grafana_dashboard,
     register_prometheus_jobs,
     render_grafana_dashboard,
@@ -137,9 +136,7 @@ class TestEtcdCtl:
     def test_register_grafana_dashboard(self, set_flag_mock,
                                         mock_dashboard_render):
         """Register grafana dashboard."""
-        dashboard_file = '/foo/bar'
         dashboard_json = {'foo': 'bar'}
-        resource_get.return_value = dashboard_file
         mock_dashboard_render.return_value = dashboard_json
         grafana = MagicMock()
         endpoint_from_flag.return_value = grafana
@@ -150,21 +147,6 @@ class TestEtcdCtl:
         grafana.register_dashboard.assert_called_with(
             name=GRAFANA_DASHBOARD_NAME, dashboard=dashboard_json)
         set_flag_mock.assert_called_with('grafana.configured')
-
-    @patch('reactive.etcd.set_flag')
-    def test_register_grafana_dashboard_missing_resource(self, set_flag_mock):
-        """Log error if 'dashboard' resource is missing."""
-        resource_get.return_value = None
-        grafana = MagicMock()
-        endpoint_from_flag.return_value = grafana
-        expected_err = "Failed to register Grafana dashboard. Resource " \
-                       "'dashboard' is missing."
-
-        register_grafana_dashboard()
-
-        log.assert_called_with(expected_err, level=hookenv.ERROR)
-        grafana.register_dashboard.assert_not_called()
-        set_flag_mock.assert_not_called()
 
     def test_register_prometheus_job(self, mocker):
         """Test successful registration of prometheus job."""
