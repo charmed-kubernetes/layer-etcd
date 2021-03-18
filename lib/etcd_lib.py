@@ -1,5 +1,15 @@
+from charmhelpers.core import hookenv
 from charmhelpers.core.hookenv import config, network_get, unit_private_ip
 from charmhelpers.contrib.network.ip import is_address_in_network
+
+from jinja2 import Environment, FileSystemLoader
+from jinja2.exceptions import TemplateNotFound
+
+import json
+import os
+
+
+GRAFANA_DASHBOARD_FILE = 'grafana_dashboard.json.j2'
 
 
 def get_ingress_addresses(endpoint_name):
@@ -89,3 +99,30 @@ def etcd_reachable_from_endpoint(endpoint_name):
             return True
 
     return False
+
+
+def render_grafana_dashboard(datasource):
+    """Load grafana dashboard json model and insert prometheus datasource.
+
+    :param datasource: name of the 'prometheus' application that will be used
+                       as datasource in grafana dashboard
+    :return: Grafana dashboard json model as a dict.
+    """
+    datasource = "{} - Juju generated source".format(datasource)
+
+    template_folder = os.path.join(hookenv.charm_dir(),
+                                   "templates/")
+
+    environment = Environment(loader=FileSystemLoader(template_folder),
+                              variable_start_string="<<",
+                              variable_end_string=">>"
+                              )
+    try:
+        template = environment.get_template(GRAFANA_DASHBOARD_FILE)
+    except TemplateNotFound as exc:
+        hookenv.log(
+            "Could not load template {} from {}".format(GRAFANA_DASHBOARD_FILE,
+                                                        template_folder)
+        )
+        raise exc
+    return json.loads(template.render({'datasource': datasource}))

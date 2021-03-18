@@ -1,11 +1,16 @@
 import pytest
 
 from pytest import param
+from unittest.mock import patch, mock_open
 from netaddr import IPAddress, IPNetwork
 
 import etcd_lib
 
-from etcd_lib import etcd_reachable_from_endpoint
+from etcd_lib import (
+    etcd_reachable_from_endpoint,
+    hookenv,
+    render_grafana_dashboard,
+)
 
 
 @pytest.mark.parametrize('bind_all, ingress_addr, endpoint_net, expected', [
@@ -35,3 +40,19 @@ def test_etcd_reachable_from_endpoint(mocker, bind_all, ingress_addr,
     is_reachable = etcd_reachable_from_endpoint('foo')
 
     assert is_reachable == expected
+
+
+def test_render_grafana_dashboard():
+    """Test loading of Grafana dashboard."""
+    datasource = 'prometheus'
+    hookenv.charm_dir.return_value = './'
+    raw_template = b'{"panels": [{"datasource": "<< datasource >>"}]}'
+    expected_dashboard = {
+        'panels': [
+            {'datasource': '{} - Juju generated source'.format(datasource)}
+        ]}
+
+    with patch('builtins.open', mock_open(read_data=raw_template)):
+        rendered_dashboard = render_grafana_dashboard(datasource)
+
+    assert rendered_dashboard == expected_dashboard

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, MagicMock
 
 import reactive.etcd
 
@@ -10,7 +10,6 @@ from etcdctl import (
 )  # noqa
 
 from reactive.etcd import (
-    config,
     endpoint_from_flag,
     GRAFANA_DASHBOARD_NAME,
     hookenv,
@@ -20,7 +19,6 @@ from reactive.etcd import (
     post_series_upgrade,
     register_grafana_dashboard,
     register_prometheus_jobs,
-    render_grafana_dashboard,
     status,
 )
 
@@ -114,22 +112,6 @@ class TestEtcdCtl:
             get_connection_string(['1.1.1.1'], '1111') ==
             'https://1.1.1.1:1111'
         )
-
-    def test_render_grafana_dashboard(self):
-        """Test loading of Grafana dashboard."""
-        datasource = 'prometheus'
-        config.return_value = datasource
-        hookenv.charm_dir.return_value = './'
-        raw_template = b'{"panels": [{"datasource": "<< datasource >>"}]}'
-        expected_dashboard = {
-            'panels': [
-                {'datasource': '{} - Juju generated source'.format(datasource)}
-            ]}
-
-        with patch('builtins.open', mock_open(read_data=raw_template)):
-            rendered_dashboard = render_grafana_dashboard()
-
-        assert rendered_dashboard == expected_dashboard
 
     @patch('reactive.etcd.render_grafana_dashboard')
     @patch('reactive.etcd.set_flag')

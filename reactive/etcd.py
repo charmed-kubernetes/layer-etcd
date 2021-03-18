@@ -43,11 +43,10 @@ from etcd_databag import EtcdDatabag
 from etcd_lib import (
     get_ingress_address,
     get_ingress_addresses,
-    etcd_reachable_from_endpoint
+    etcd_reachable_from_endpoint,
+    render_grafana_dashboard,
 )
 
-from jinja2 import Environment, FileSystemLoader
-from jinja2.exceptions import TemplateNotFound
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
@@ -75,7 +74,6 @@ import yaml
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
 nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
-GRAFANA_DASHBOARD_FILE = 'grafana_dashboard.json.j2'
 GRAFANA_DASHBOARD_NAME = 'etcd'
 
 
@@ -829,6 +827,12 @@ def register_prometheus_jobs():
     set_flag('prometheus.configured')
 
 
+@when('endpoint.prometheus.departed')
+def reset_prometheus_config():
+    clear_flag('prometheus.configured')
+    clear_flag('grafana.configured')
+
+
 @when(
     "prometheus.configured",
     "endpoint.grafana.joined",
@@ -836,10 +840,24 @@ def register_prometheus_jobs():
 )
 @when_not("grafana.configured")
 def register_grafana_dashboard():
+    log("Configuring grafana dashboard", level=hookenv.INFO)
     grafana = endpoint_from_flag("endpoint.grafana.joined")
-    log("Loading grafana dashboard", level=hookenv.DEBUG)
+    prometheus = endpoint_from_flag('endpoint.prometheus.joined')
 
-    dashboard = render_grafana_dashboard()
+    if not prometheus:
+        log(
+            "Prometheus relation not available. Skipping Grafana"
+            " configuration.", hookenv.WARNING)
+        return
+
+    if len(prometheus.relations) > 1:
+        log(
+            "Multiple prometheus relations detected. Default Grafana dashboard"
+            " will configure only with one of them as datasource.",
+            hookenv.WARNING)
+
+    datasource = prometheus.relations[0].application_name
+    dashboard = render_grafana_dashboard(datasource)
 
     log("Rendered Grafana dashboard:\n{}".format(json.dumps(dashboard)),
         level=hookenv.DEBUG)
@@ -847,38 +865,6 @@ def register_grafana_dashboard():
                                dashboard=dashboard)
     log('Grafana dashboard "{}" registered.'.format(GRAFANA_DASHBOARD_NAME))
     set_flag("grafana.configured")
-
-
-def render_grafana_dashboard():
-    """Load grafana dashboard json model and insert prometheus datasource.
-
-    This function is capable of handling json models with single user
-    input that defines "Prometheus datasource". Models with more than one
-    input or with input that is not "Prometheus datasource" will result in
-    logged error and empty dict will be returned.
-
-    :param dashboard_path: Path to file containing Grafana dashboard json model
-    :return: Grafana dashboard json model as a dict.
-    """
-    datasource = "{} - Juju generated source".format(
-        config("prometheus_datasource"))
-
-    template_folder = os.path.join(hookenv.charm_dir(),
-                                   "templates/")
-
-    environment = Environment(loader=FileSystemLoader(template_folder),
-                              variable_start_string="<<",
-                              variable_end_string=">>"
-                              )
-    try:
-        template = environment.get_template(GRAFANA_DASHBOARD_FILE)
-    except TemplateNotFound as exc:
-        hookenv.log(
-            "Could not load template {} from {}".format(GRAFANA_DASHBOARD_FILE,
-                                                        template_folder)
-        )
-        raise exc
-    return json.loads(template.render({'datasource': datasource}))
 
 
 @when("endpoint.grafana.departed", "grafana.configured")
