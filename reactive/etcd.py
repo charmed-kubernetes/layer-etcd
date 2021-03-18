@@ -10,6 +10,8 @@ from charms.reactive import when_any
 from charms.reactive import when_not
 from charms.reactive import is_state
 from charms.reactive import set_state
+from charms.reactive import is_flag_set
+from charms.reactive import clear_flag
 from charms.reactive import remove_state
 from charms.reactive import hook
 from charms.reactive.helpers import data_changed
@@ -48,6 +50,8 @@ import socket
 import time
 import traceback
 import yaml
+import shutil
+import random
 
 
 # Layer Note:   the @when_not etcd.installed state checks are relating to
@@ -600,6 +604,37 @@ def render_default_user_ssl_exports():
         fp.writelines(evars)
 
     set_state('etcd.ssl.exported')
+
+
+def force_rejoin():
+    """Wipe local data and rejoin new cluster formed by leader unit
+
+    This action is required if leader unit performed snapshot restore. All
+    other members must remove their local data and previous cluster
+    identities and join newly formed, restored, cluster.
+    """
+    log('Wiping local storage and rejoining cluster')
+    conf = EtcdDatabag()
+    host.service_stop(conf.etcd_daemon)
+    clear_flag('etcd.registered')
+    etcd_data = os.path.join(conf.storage_path(), 'member')
+    if os.path.exists(etcd_data):
+        shutil.rmtree(etcd_data)
+    for _ in range(11):
+        # We need randomized back-off timer because only one unit can be
+        # joining at the same time
+        time.sleep(random.randint(1, 10))
+        register_node_with_leader(None)
+        if is_flag_set('etcd.registered'):
+            log('Successfully rejoined the cluster')
+            break
+
+
+@when('leadership.changed.force_rejoin')
+@when_not('leadership.is_leader')
+def force_rejoin_requested():
+    force_rejoin()
+    check_cluster_health()
 
 
 @hook('cluster-relation-broken')

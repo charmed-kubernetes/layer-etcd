@@ -7,11 +7,16 @@ from etcdctl import (
     get_connection_string,
 )  # noqa
 
+from etcd_databag import EtcdDatabag
+
 from reactive.etcd import (
-    host,
     pre_series_upgrade,
     post_series_upgrade,
     status,
+    clear_flag,
+    host,
+    force_rejoin_requested,
+    force_rejoin,
 )
 
 
@@ -117,3 +122,31 @@ class TestEtcdCtl:
         assert host.service_pause.call_count == 1
         assert host.service_resume.call_count == 1
         assert status.blocked.call_count == 1
+
+    @patch('reactive.etcd.force_rejoin')
+    @patch('reactive.etcd.check_cluster_health')
+    def test_rejoin_trigger(self, cluster_health_mock,
+                            rejoin_mock):
+        """Test that unit will trigger force_rejoin on new request"""
+        force_rejoin_requested()
+
+        rejoin_mock.assert_called_once()
+        cluster_health_mock.assert_called_once()
+
+    @patch('reactive.etcd.register_node_with_leader')
+    @patch('os.path.exists')
+    @patch('shutil.rmtree')
+    @patch('os.path.join')
+    @patch('time.sleep')
+    def test_force_rejoin(self, sleep, path_join, rmtree, path_exists,
+                          register_node):
+        """Test that force_rejoin performs required steps."""
+        data_dir = '/foo/bar'
+        path_exists.return_value = True
+        path_join.return_value = data_dir
+        force_rejoin()
+
+        host.service_stop.assert_called_with(EtcdDatabag().etcd_daemon)
+        clear_flag.assert_called_with('etcd.registered')
+        rmtree.assert_called_with(data_dir)
+        register_node.assert_called()
