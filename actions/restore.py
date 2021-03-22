@@ -1,16 +1,24 @@
 #!/usr/local/sbin/charm-env python3
 
 from charms import layer
-from charmhelpers.core.hookenv import action_fail
+from charms.templating.jinja2 import render
+from charmhelpers.core import unitdata
+from charmhelpers.core import hookenv
+from charmhelpers.core.hookenv import function_fail
 from charmhelpers.core.hookenv import action_get
 from charmhelpers.core.hookenv import action_set
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import resource_get
+from charmhelpers.core.hookenv import is_leader
+from charmhelpers.core.hookenv import _run_atstart
+from charmhelpers.core.hookenv import _run_atexit
 from charmhelpers.core.host import chdir
 from charmhelpers.core.host import service_start
 from charmhelpers.core.host import service_stop
 from etcd_lib import get_ingress_address
+from etcdctl import EtcdCtl
+from etcd_databag import EtcdDatabag
 from shlex import split
 from subprocess import check_call
 from subprocess import check_output
@@ -18,11 +26,16 @@ from subprocess import CalledProcessError
 from subprocess import Popen
 from subprocess import PIPE
 from datetime import datetime
+from uuid import uuid4
 import hashlib
 import os
 import sys
 import time
 import yaml
+
+# Import charm layers and start reactive
+layer.import_layer_libs()
+_run_atstart()
 
 opts = layer.options('etcd')
 
@@ -43,8 +56,11 @@ TARGET_PATH = action_get('target')
 
 def preflight_check():
     ''' Check preconditions for data restoration '''
+    if not is_leader():
+        function_fail('This action can only be run on the leader unit')
+        sys.exit(0)
     if not SNAPSHOT_ARCHIVE:
-        action_fail({'result.failed': 'Missing snapshot. See: README.md'})
+        function_fail({'result.failed': 'Missing snapshot. See: README.md'})
         sys.exit(0)
 
 
@@ -183,21 +199,6 @@ def reconfigure_client_advertise():
     check_call(split(update_cmd))
 
 
-def stop_etcd():
-    ''' Stop the etcd service, delivered by snap or by deb'''
-    try:
-        service_stop('snap.etcd.etcd')
-        log('Stopped service: snap.etcd.etcd')
-    except:
-        log('Failed to stop snap.etcd.etcd')
-
-    try:
-        service_stop('etcd')
-        log('Stopped service: etcd')
-    except:
-        log('Failed to stop service: etcd')
-
-
 def shasum_file(filepath):
     ''' Compute the SHA256sum of a file for verification purposes '''
     BUF_SIZE = 65536  # 64kb chunk size
@@ -211,10 +212,42 @@ def shasum_file(filepath):
     return shasum.hexdigest()
 
 
+def dismantle_cluster():
+    """Disconnect other cluster members.
+
+    This is a preparation step before restoring snapshot on the cluster.
+    """
+    log('Disconnecting cluster members')
+    etcdctl = EtcdCtl()
+    etcd_conf = EtcdDatabag()
+
+    my_name = etcd_conf.unit_name
+    endpoint = 'https://{}:{}'.format(etcd_conf.cluster_address,
+                                      etcd_conf.port)
+    for name, data in etcdctl.member_list(endpoint).items():
+        if name != my_name:
+            log('Disconnecting {}'.format(name), hookenv.DEBUG)
+            etcdctl.unregister(data['unit_id'], endpoint)
+
+    etcd_conf.cluster_state = 'new'
+    conf_path = os.path.join(etcd_conf.etcd_conf_dir, "etcd.conf.yml")
+    render('etcd3.conf', conf_path, etcd_conf.__dict__, owner='root',
+           group='root')
+
+
+def rebuild_cluster():
+    """Signal other etcd units to rejoin new cluster."""
+    log('Requesting peer members to rejoin cluster')
+    rejoin_request = uuid4().hex
+    hookenv.leader_set(force_rejoin=rejoin_request)
+
+
 if __name__ == '__main__':
+    log('Performing etcd snapshot restore')
     preflight_check()
-    stop_etcd()
     render_backup()
+    dismantle_cluster()
+    service_stop(opts['etcd_daemon_process'])
     if is_v3_backup():
         restore_v3_backup()
     else:
@@ -224,3 +257,5 @@ if __name__ == '__main__':
         reconfigure_client_advertise()
         pkill_etcd(pid)
     service_start(opts['etcd_daemon_process'])
+    rebuild_cluster()
+    _run_atexit()
