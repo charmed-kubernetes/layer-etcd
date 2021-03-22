@@ -11,7 +11,6 @@ from charms.reactive import when_not
 from charms.reactive import is_state
 from charms.reactive import set_state
 from charms.reactive import is_flag_set
-from charms.reactive import clear_flag
 from charms.reactive import remove_state
 from charms.reactive import set_flag
 from charms.reactive import clear_flag

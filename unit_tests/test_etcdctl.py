@@ -12,19 +12,19 @@ from etcdctl import (
 from etcd_databag import EtcdDatabag
 
 from reactive.etcd import (
+    clear_flag,
     endpoint_from_flag,
+    force_rejoin_requested,
+    force_rejoin,
     GRAFANA_DASHBOARD_NAME,
     hookenv,
+    host,
     log,
     pre_series_upgrade,
     post_series_upgrade,
     register_grafana_dashboard,
     register_prometheus_jobs,
     status,
-    clear_flag,
-    host,
-    force_rejoin_requested,
-    force_rejoin,
 )
 
 
