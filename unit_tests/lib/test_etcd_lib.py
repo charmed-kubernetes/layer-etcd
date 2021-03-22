@@ -4,11 +4,12 @@ from pytest import param
 from unittest.mock import patch, mock_open
 from netaddr import IPAddress, IPNetwork
 
+from charmhelpers.core import hookenv
+
 import etcd_lib
 
 from etcd_lib import (
     etcd_reachable_from_endpoint,
-    hookenv,
     render_grafana_dashboard,
 )
 

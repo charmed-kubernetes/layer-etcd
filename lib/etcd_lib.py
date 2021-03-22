@@ -1,6 +1,11 @@
-from charmhelpers.core import hookenv
-from charmhelpers.core.hookenv import config, network_get, unit_private_ip
 from charmhelpers.contrib.network.ip import is_address_in_network
+from charmhelpers.core.hookenv import (
+    charm_dir,
+    config,
+    log,
+    network_get,
+    unit_private_ip,
+)
 
 from jinja2 import Environment, FileSystemLoader
 from jinja2.exceptions import TemplateNotFound
@@ -110,8 +115,7 @@ def render_grafana_dashboard(datasource):
     """
     datasource = "{} - Juju generated source".format(datasource)
 
-    template_folder = os.path.join(hookenv.charm_dir(),
-                                   "templates/")
+    template_folder = os.path.join(charm_dir(), "templates/")
 
     environment = Environment(loader=FileSystemLoader(template_folder),
                               variable_start_string="<<",
@@ -120,7 +124,7 @@ def render_grafana_dashboard(datasource):
     try:
         template = environment.get_template(GRAFANA_DASHBOARD_FILE)
     except TemplateNotFound as exc:
-        hookenv.log(
+        log(
             "Could not load template {} from {}".format(GRAFANA_DASHBOARD_FILE,
                                                         template_folder)
         )
