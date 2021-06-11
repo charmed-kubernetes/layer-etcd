@@ -1,18 +1,12 @@
 from charmhelpers.contrib.network.ip import is_address_in_network
+from charmhelpers.contrib.templating.jinja import render
 from charmhelpers.core.hookenv import (
-    charm_dir,
     config,
-    log,
     network_get,
     unit_private_ip,
 )
 
-from jinja2 import Environment, FileSystemLoader
-from jinja2.exceptions import TemplateNotFound
-
 import json
-import os
-
 
 GRAFANA_DASHBOARD_FILE = 'grafana_dashboard.json.j2'
 
@@ -114,19 +108,7 @@ def render_grafana_dashboard(datasource):
     :return: Grafana dashboard json model as a dict.
     """
     datasource = "{} - Juju generated source".format(datasource)
-
-    template_folder = os.path.join(charm_dir(), "templates/")
-
-    environment = Environment(loader=FileSystemLoader(template_folder),
-                              variable_start_string="<<",
-                              variable_end_string=">>"
-                              )
-    try:
-        template = environment.get_template(GRAFANA_DASHBOARD_FILE)
-    except TemplateNotFound as exc:
-        log(
-            "Could not load template {} from {}".format(GRAFANA_DASHBOARD_FILE,
-                                                        template_folder)
-        )
-        raise exc
-    return json.loads(template.render({'datasource': datasource}))
+    jinja_args = {'variable_start_string': '<<', 'variable_end_string': '>>'}
+    return json.loads(render(GRAFANA_DASHBOARD_FILE,
+                             {'datasource': datasource},
+                             jinja_env_args=jinja_args))
