@@ -17,9 +17,7 @@ from reactive.etcd import (
     force_rejoin_requested,
     force_rejoin,
     GRAFANA_DASHBOARD_NAME,
-    hookenv,
     host,
-    log,
     pre_series_upgrade,
     post_series_upgrade,
     register_grafana_dashboard,
@@ -146,8 +144,6 @@ class TestEtcdCtl:
 
         etcd_cluster_mock.get_db_ingress_addresses.return_value = []
         endpoint_from_flag.side_effect = [prometheus_mock, etcd_cluster_mock]
-        mocker.patch.object(reactive.etcd, 'etcd_reachable_from_endpoint',
-                            return_value=True)
         mocker.patch.object(reactive.etcd, 'get_ingress_address',
                             return_value=ingress_address)
         reactive.etcd.config.return_value = port
@@ -157,21 +153,6 @@ class TestEtcdCtl:
         prometheus_mock.register_job.assert_called_with(job_name='etcd',
                                                         job_data=job_data)
         reactive.etcd.set_flag.assert_called_with('prometheus.configured')
-
-    def test_register_prometheus_job_endpoint_unreachable(self, mocker):
-        """Test that registration doesn't occur if prometheus cant reach etcd"""
-        prometheus_mock = MagicMock()
-        etcd_cluster_mock = MagicMock()
-        endpoint_from_flag.side_effect = [prometheus_mock, etcd_cluster_mock]
-        mocker.patch.object(reactive.etcd, 'etcd_reachable_from_endpoint',
-                            return_value=False)
-
-        register_prometheus_jobs()
-
-        log.assert_called_with('Aborting Prometheus metrics collection. Etcd '
-                               'is not reachable by prometheus client',
-                               hookenv.WARNING)
-        prometheus_mock.register_job.assert_not_called()
 
     def test_series_upgrade(self):
         assert host.service_pause.call_count == 0

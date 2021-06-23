@@ -23,7 +23,6 @@ from charms.templating.jinja2 import render
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
 from charmhelpers.core.hookenv import DEBUG
-from charmhelpers.core.hookenv import WARNING
 
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
@@ -45,7 +44,6 @@ from etcd_databag import EtcdDatabag
 from etcd_lib import (
     get_ingress_address,
     get_ingress_addresses,
-    etcd_reachable_from_endpoint,
     render_grafana_dashboard,
 )
 
@@ -84,6 +82,7 @@ register_trigger(when_not="endpoint.grafana.joined", clear_flag="grafana.configu
 register_trigger(when_not="endpoint.prometheus.joined",
                  clear_flag="prometheus.configured")
 register_trigger(when_not="endpoint.prometheus.joined", clear_flag="grafana.configured")
+
 
 def get_target_etcd_channel():
     """
@@ -850,11 +849,6 @@ def register_prometheus_jobs():
     log('Registering Prometheus metrics collection.')
     prometheus = endpoint_from_flag('endpoint.prometheus.joined')
     cluster = endpoint_from_flag('cluster.joined')
-
-    if not etcd_reachable_from_endpoint(prometheus.endpoint_name):
-        log('Aborting Prometheus metrics collection. Etcd is not reachable by'
-            ' prometheus client', WARNING)
-        return
 
     peer_ips = cluster.get_db_ingress_addresses() if cluster else []
     peer_ips.append(get_ingress_address('db'))
