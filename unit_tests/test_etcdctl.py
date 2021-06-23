@@ -119,9 +119,7 @@ class TestEtcdCtl:
         )
 
     @patch('reactive.etcd.render_grafana_dashboard')
-    @patch('reactive.etcd.set_flag')
-    def test_register_grafana_dashboard(self, set_flag_mock,
-                                        mock_dashboard_render):
+    def test_register_grafana_dashboard(self, mock_dashboard_render):
         """Register grafana dashboard."""
         dashboard_json = {'foo': 'bar'}
         mock_dashboard_render.return_value = dashboard_json
@@ -133,7 +131,7 @@ class TestEtcdCtl:
         mock_dashboard_render.assert_called_once()
         grafana.register_dashboard.assert_called_with(
             name=GRAFANA_DASHBOARD_NAME, dashboard=dashboard_json)
-        set_flag_mock.assert_called_with('grafana.configured')
+        reactive.etcd.set_flag.assert_called_with('grafana.configured')
 
     def test_register_prometheus_job(self, mocker):
         """Test successful registration of prometheus job."""
