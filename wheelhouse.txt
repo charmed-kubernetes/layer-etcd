@@ -2,4 +2,3 @@ charms.templating.jinja2>=1.0.0,<2.0.0
 
 # pin netaddr to avoid pulling importlib-resources from above lib
 netaddr<=0.7.19
-netifaces
