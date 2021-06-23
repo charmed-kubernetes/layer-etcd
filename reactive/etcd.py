@@ -15,6 +15,7 @@ from charms.reactive import remove_state
 from charms.reactive import set_flag
 from charms.reactive import clear_flag
 from charms.reactive import hook
+from charms.reactive import register_trigger
 from charms.reactive.helpers import data_changed
 
 from charms.templating.jinja2 import render
@@ -79,6 +80,10 @@ nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
 
 GRAFANA_DASHBOARD_NAME = 'etcd'
 
+register_trigger(when_not="endpoint.grafana.joined", clear_flag="grafana.configured")
+register_trigger(when_not="endpoint.prometheus.joined",
+                 clear_flag="prometheus.configured")
+register_trigger(when_not="endpoint.prometheus.joined", clear_flag="grafana.configured")
 
 def get_target_etcd_channel():
     """
@@ -838,6 +843,10 @@ def remove_nrpe_config(nagios=None):
       'leadership.is_leader',
       'certificates.ca.available')
 def register_prometheus_jobs():
+    # This function is not guarded with `when_not("prometheus.configured")`
+    # to account for possible changes of etcd units IP adresses and for when
+    # etcd units are added/removed. Repeated calls to `prometheus.register_job()`
+    # have no effect unless job_data changes.
     log('Registering Prometheus metrics collection.')
     prometheus = endpoint_from_flag('endpoint.prometheus.joined')
     cluster = endpoint_from_flag('cluster.joined')
@@ -859,12 +868,6 @@ def register_prometheus_jobs():
                                 ]
                             })
     set_flag('prometheus.configured')
-
-
-@when('endpoint.prometheus.departed')
-def reset_prometheus_config():
-    clear_flag('prometheus.configured')
-    clear_flag('grafana.configured')
 
 
 @when(
@@ -899,11 +902,6 @@ def register_grafana_dashboard():
                                dashboard=dashboard)
     log('Grafana dashboard "{}" registered.'.format(GRAFANA_DASHBOARD_NAME))
     set_flag("grafana.configured")
-
-
-@when("endpoint.grafana.departed", "grafana.configured")
-def unregister_grafana_dashboard():
-    clear_flag("grafana.configured")
 
 
 def volume_is_mounted(volume):
