@@ -1,4 +1,12 @@
-from charmhelpers.core.hookenv import network_get, unit_private_ip
+from charmhelpers.contrib.templating.jinja import render
+from charmhelpers.core.hookenv import (
+    network_get,
+    unit_private_ip,
+)
+
+import json
+
+GRAFANA_DASHBOARD_FILE = 'grafana_dashboard.json.j2'
 
 
 def get_ingress_addresses(endpoint_name):
@@ -66,3 +74,17 @@ def get_bind_address(endpoint_name):
                     return bind_addresses[0]['addresses'][0]['address']
 
     return unit_private_ip()
+
+
+def render_grafana_dashboard(datasource):
+    """Load grafana dashboard json model and insert prometheus datasource.
+
+    :param datasource: name of the 'prometheus' application that will be used
+                       as datasource in grafana dashboard
+    :return: Grafana dashboard json model as a dict.
+    """
+    datasource = "{} - Juju generated source".format(datasource)
+    jinja_args = {'variable_start_string': '<<', 'variable_end_string': '>>'}
+    return json.loads(render(GRAFANA_DASHBOARD_FILE,
+                             {'datasource': datasource},
+                             jinja_env_args=jinja_args))

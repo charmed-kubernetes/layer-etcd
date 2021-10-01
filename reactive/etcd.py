@@ -11,14 +11,19 @@ from charms.reactive import when_not
 from charms.reactive import is_state
 from charms.reactive import set_state
 from charms.reactive import is_flag_set
-from charms.reactive import clear_flag
 from charms.reactive import remove_state
+from charms.reactive import set_flag
+from charms.reactive import clear_flag
 from charms.reactive import hook
+from charms.reactive import register_trigger
 from charms.reactive.helpers import data_changed
 
 from charms.templating.jinja2 import render
 
+from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
+from charmhelpers.core.hookenv import DEBUG
+
 from charmhelpers.core.hookenv import leader_set
 from charmhelpers.core.hookenv import leader_get
 from charmhelpers.core.hookenv import storage_get
@@ -36,7 +41,11 @@ from charms.layer import status
 from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
-from etcd_lib import get_ingress_address, get_ingress_addresses
+from etcd_lib import (
+    get_ingress_address,
+    get_ingress_addresses,
+    render_grafana_dashboard,
+)
 
 from shlex import split
 from subprocess import check_call
@@ -44,6 +53,7 @@ from subprocess import check_output
 from subprocess import CalledProcessError
 from shutil import copyfile
 
+import json
 import os
 import charms.leadership  # noqa
 import socket
@@ -65,6 +75,13 @@ import random
 # need because our bin names contain them (e.g. 'snap.foo.daemon'). The
 # default regex in charmhelpers doesn't allow periods, but nagios itself does.
 nrpe.Check.shortname_re = r'[\.A-Za-z0-9-_]+$'
+
+GRAFANA_DASHBOARD_NAME = 'etcd'
+
+register_trigger(when_not="endpoint.grafana.joined", clear_flag="grafana.configured")
+register_trigger(when_not="endpoint.prometheus.joined",
+                 clear_flag="prometheus.configured")
+register_trigger(when_not="endpoint.prometheus.joined", clear_flag="grafana.configured")
 
 
 def get_target_etcd_channel():
@@ -819,6 +836,66 @@ def remove_nrpe_config(nagios=None):
 
     for service in services:
         nrpe_setup.remove_check(shortname=service)
+
+
+@when('endpoint.prometheus.joined',
+      'leadership.is_leader',
+      'certificates.ca.available')
+def register_prometheus_jobs():
+    # This function is not guarded with `when_not("prometheus.configured")`
+    # to account for possible changes of etcd units IP adresses and for when
+    # etcd units are added/removed. Repeated calls to `prometheus.register_job()`
+    # have no effect unless job_data changes.
+    log('Registering Prometheus metrics collection.')
+    prometheus = endpoint_from_flag('endpoint.prometheus.joined')
+    cluster = endpoint_from_flag('cluster.joined')
+
+    peer_ips = cluster.get_db_ingress_addresses() if cluster else []
+    peer_ips.append(get_ingress_address('db'))
+    targets = ["{}:{}".format(ip, config('port')) for ip in peer_ips]
+    log('Configuring Prometheus scrape targets: {}'.format(targets), DEBUG)
+    prometheus.register_job(job_name='etcd',
+                            job_data={
+                                'scheme': 'https',
+                                'static_configs': [
+                                    {'targets': targets},
+                                ]
+                            })
+    set_flag('prometheus.configured')
+
+
+@when(
+    "prometheus.configured",
+    "endpoint.grafana.joined",
+    "leadership.is_leader"
+)
+@when_not("grafana.configured")
+def register_grafana_dashboard():
+    log("Configuring grafana dashboard", level=hookenv.INFO)
+    grafana = endpoint_from_flag("endpoint.grafana.joined")
+    prometheus = endpoint_from_flag('endpoint.prometheus.joined')
+
+    if not prometheus:
+        log(
+            "Prometheus relation not available. Skipping Grafana"
+            " configuration.", hookenv.WARNING)
+        return
+
+    if len(prometheus.relations) > 1:
+        log(
+            "Multiple prometheus relations detected. Default Grafana dashboard"
+            " will configure only with one of them as datasource.",
+            hookenv.WARNING)
+
+    datasource = prometheus.relations[0].application_name
+    dashboard = render_grafana_dashboard(datasource)
+
+    log("Rendered Grafana dashboard:\n{}".format(json.dumps(dashboard)),
+        level=hookenv.DEBUG)
+    grafana.register_dashboard(name=GRAFANA_DASHBOARD_NAME,
+                               dashboard=dashboard)
+    log('Grafana dashboard "{}" registered.'.format(GRAFANA_DASHBOARD_NAME))
+    set_flag("grafana.configured")
 
 
 def volume_is_mounted(volume):

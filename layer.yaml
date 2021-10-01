@@ -11,7 +11,9 @@ includes:
   - 'layer:status'
   - 'interface:etcd'
   - 'interface:etcd-proxy'
+  - 'interface:grafana-dashboard'
   - 'interface:nrpe-external-master'
+  - 'interface:prometheus-manual'
 exclude:
   - .coverage
   - .tox

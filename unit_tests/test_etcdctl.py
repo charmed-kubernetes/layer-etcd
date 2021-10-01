@@ -1,5 +1,7 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
+import reactive.etcd
 
 from etcdctl import (
     EtcdCtl,
@@ -10,13 +12,17 @@ from etcdctl import (
 from etcd_databag import EtcdDatabag
 
 from reactive.etcd import (
-    pre_series_upgrade,
-    post_series_upgrade,
-    status,
     clear_flag,
-    host,
+    endpoint_from_flag,
     force_rejoin_requested,
     force_rejoin,
+    GRAFANA_DASHBOARD_NAME,
+    host,
+    pre_series_upgrade,
+    post_series_upgrade,
+    register_grafana_dashboard,
+    register_prometheus_jobs,
+    status,
 )
 
 
@@ -109,6 +115,44 @@ class TestEtcdCtl:
             get_connection_string(['1.1.1.1'], '1111') ==
             'https://1.1.1.1:1111'
         )
+
+    @patch('reactive.etcd.render_grafana_dashboard')
+    def test_register_grafana_dashboard(self, mock_dashboard_render):
+        """Register grafana dashboard."""
+        dashboard_json = {'foo': 'bar'}
+        mock_dashboard_render.return_value = dashboard_json
+        grafana = MagicMock()
+        endpoint_from_flag.return_value = grafana
+
+        register_grafana_dashboard()
+
+        mock_dashboard_render.assert_called_once()
+        grafana.register_dashboard.assert_called_with(
+            name=GRAFANA_DASHBOARD_NAME, dashboard=dashboard_json)
+        reactive.etcd.set_flag.assert_called_with('grafana.configured')
+
+    def test_register_prometheus_job(self, mocker):
+        """Test successful registration of prometheus job."""
+        ingress_address = '10.0.0.1'
+        port = '2379'
+        targets = ['{}:{}'.format(ingress_address, port)]
+        prometheus_mock = MagicMock()
+        etcd_cluster_mock = MagicMock()
+        job_data = {'scheme': 'https',
+                    'static_configs': [{'targets': targets}]
+                    }
+
+        etcd_cluster_mock.get_db_ingress_addresses.return_value = []
+        endpoint_from_flag.side_effect = [prometheus_mock, etcd_cluster_mock]
+        mocker.patch.object(reactive.etcd, 'get_ingress_address',
+                            return_value=ingress_address)
+        reactive.etcd.config.return_value = port
+
+        register_prometheus_jobs()
+
+        prometheus_mock.register_job.assert_called_with(job_name='etcd',
+                                                        job_data=job_data)
+        reactive.etcd.set_flag.assert_called_with('prometheus.configured')
 
     def test_series_upgrade(self):
         assert host.service_pause.call_count == 0
