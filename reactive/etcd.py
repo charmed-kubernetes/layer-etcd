@@ -152,9 +152,16 @@ def missing_relation_notice():
 
 @when('certificates.available')
 def prepare_tls_certificates(tls):
-    common_name = hookenv.unit_public_ip()
+    try:
+        common_name = hookenv.unit_public_ip()
+    except (CalledProcessError, KeyError, IndexError) as e:
+        msg = 'Public address not available yet'
+        hookenv.log(msg, hookenv.WARNING)
+        hookenv.log(e, hookenv.WARNING)
+        return
+
     sans = set()
-    sans.add(hookenv.unit_public_ip())
+    sans.add(common_name)
     sans.update(get_ingress_addresses('db'))
     sans.update(get_ingress_addresses('cluster'))
     sans.add(socket.gethostname())
