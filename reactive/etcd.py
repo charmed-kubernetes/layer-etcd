@@ -133,7 +133,7 @@ def check_cluster_health():
     bp = "{0} with {1} known peer{2}"
     status_message = bp.format(unit_health, peers, 's' if peers != 1 else '')
 
-    if unit_health == "UnHealthy":
+    if unit_health in ["UnHealthy", 'Errored']:
         status.blocked(status_message)
     else:
         status.active(status_message)
