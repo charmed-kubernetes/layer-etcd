@@ -907,6 +907,13 @@ def register_grafana_dashboard():
     set_flag("grafana.configured")
 
 
+@when("snap.installed.etcd", "data.volume.attached")
+@when_not("snap.connected.removable_media")
+def snap_connect_external_storage():
+    snap.connect("etcd:removable-media", ":removable-media")
+    set_flag("snap.connected.removable_media")
+
+
 def volume_is_mounted(volume):
     """Takes a hardware path and returns true/false if it is mounted"""
     cmd = ["df", "-t", "ext4"]
