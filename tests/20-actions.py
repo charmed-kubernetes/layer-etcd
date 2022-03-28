@@ -38,7 +38,7 @@ class TestActions(unittest.TestCase):
         """
         Trigger snapshot and restore actions
         """
-        # Load dummy data
+        # Load sample data
         self.load_data()
         self.assertTrue(self.is_data_present("v2"))
         self.assertTrue(self.is_data_present("v3"))
@@ -85,7 +85,7 @@ class TestActions(unittest.TestCase):
 
     def load_data(self):
         """
-        Load dummy data
+        Load sample data
 
         """
         certs = (
@@ -141,7 +141,7 @@ class TestActions(unittest.TestCase):
 
     def delete_data(self):
         """
-        Delete all dummy data on etcd
+        Delete all sample data on etcd
         """
         certs = (
             "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key "
