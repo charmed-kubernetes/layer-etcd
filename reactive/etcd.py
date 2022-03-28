@@ -766,10 +766,13 @@ def read_tls_cert(cert):
         return data
 
 
-@when("nrpe-external-master.available")
-@when_not("nrpe-external-master.initial-config")
+NPRE_EXTERNAL_RELATION = "nrpe-external-master"  # wokeignore:rule=master
+
+
+@when(NPRE_EXTERNAL_RELATION + ".available")
+@when_not(NPRE_EXTERNAL_RELATION + ".initial-config")
 def initial_nrpe_config(nagios=None):
-    set_state("nrpe-external-master.initial-config")
+    set_state(NPRE_EXTERNAL_RELATION + ".initial-config")
     update_nrpe_config(nagios)
 
 
@@ -779,13 +782,13 @@ def force_update_nrpe_config():
 
 
 @when("etcd.installed")
-@when("nrpe-external-master.available")
+@when(NPRE_EXTERNAL_RELATION + ".available")
 @when_not("etcd.nrpe.configured")
 def update_nrpe_config(unused=None):
     # List of systemd services that will be checked
     services = ("snap.etcd.etcd",)
 
-    # The current nrpe-external-master interface doesn't handle a lot of logic,
+    # The current nrpe-external interface doesn't handle a lot of logic,
     # use the charm-helpers code for now.
     hostname = nrpe.get_nagios_hostname()
     current_unit = nrpe.get_nagios_unit_name()
@@ -831,15 +834,15 @@ def update_nrpe_config(unused=None):
     set_state("etcd.nrpe.configured")
 
 
-@when_not("nrpe-external-master.available")
-@when("nrpe-external-master.initial-config")
+@when_not(NPRE_EXTERNAL_RELATION + ".available")
+@when(NPRE_EXTERNAL_RELATION + ".initial-config")
 def remove_nrpe_config(nagios=None):
-    remove_state("nrpe-external-master.initial-config")
+    remove_state(NPRE_EXTERNAL_RELATION + ".initial-config")
 
     # List of systemd services for which the checks will be removed
     services = ("snap.etcd.etcd",)
 
-    # The current nrpe-external-master interface doesn't handle a lot of logic,
+    # The current nrpe-external interface doesn't handle a lot of logic,
     # use the charm-helpers code for now.
     hostname = nrpe.get_nagios_hostname()
     nrpe_setup = nrpe.NRPE(hostname=hostname, primary=False)
