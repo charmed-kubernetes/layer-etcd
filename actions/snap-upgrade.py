@@ -159,6 +159,8 @@ if __name__ == '__main__':
     backup_package = action_get('target')
     backup = action_get('backup')
     channel = config('channel')
+
+    # We need to determine a default fallback channel since, there isn't an "auto" channel
     if channel == "auto":
         channel = "3.4/stable"
 

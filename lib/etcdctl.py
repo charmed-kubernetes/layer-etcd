@@ -98,7 +98,7 @@ class EtcdCtl:
                 "name": unit_name,
                 "peer_urls": peer_urls,
                 "client_urls": client_urls,
-                "is_leader": True if is_leader == "true" else False,
+                "is_leader": is_leader == "true",
             }
         return members
 

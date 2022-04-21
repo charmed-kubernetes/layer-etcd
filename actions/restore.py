@@ -91,7 +91,7 @@ def unpack_resource():
 
 
 def is_v3_backup():
-    ''' See if the backup file contains a db file indicating a v3 backup '''
+    ''' See if the backup file does not contain a wal file indicating a v3 backup '''
     cmd = "tar -tvf {0} --wildcards '*/wal'".format(SNAPSHOT_ARCHIVE)
     try:
         check_call(split(cmd))
@@ -201,7 +201,7 @@ def reconfigure_client_advertise():
             members = check_output(split(cmd))
             member_id = members.split(b',')[0].decode('utf-8')
             break
-        except:
+        except CalledProcessError:
             loop = loop + 1
 
     raw_update = "/snap/bin/etcd.etcdctl member update {0} --peer-urls http://{1}:{2}"
@@ -241,7 +241,7 @@ def dismantle_cluster():
                 try:
                     etcdctl.unregister(data['unit_id'], endpoint)
                     break
-                except:
+                except EtcdCtl.CommandFailed:
                     # Randomized back-off timer to let cluster settle
                     time.sleep(random.randint(1, 3))
 
