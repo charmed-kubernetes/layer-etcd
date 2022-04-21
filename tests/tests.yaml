@@ -1,7 +1,0 @@
-tests: "[1-2]0-*"
-reset: false
-makefile:
-  - lint
-packages:
-  - amulet
-  - tox

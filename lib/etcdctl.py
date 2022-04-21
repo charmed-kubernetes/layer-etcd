@@ -2,6 +2,7 @@ from charms import layer
 from charmhelpers.core.hookenv import log
 from subprocess import CalledProcessError
 from subprocess import check_output
+from subprocess import run as sp_run
 import os
 
 
@@ -90,12 +91,14 @@ class EtcdCtl:
             unit_name = unit.split(" ")[1].split("=")[-1]
             peer_urls = unit.split(" ")[2].split("=")[-1]
             client_urls = unit.split(" ")[3].split("=")[-1]
+            is_leader = unit.split(" ")[4].split("=")[-1]
 
             members[unit_name] = {
                 "unit_id": unit_guid,
                 "name": unit_name,
                 "peer_urls": peer_urls,
                 "client_urls": client_urls,
+                "is_leader": True if is_leader == "true" else False,
             }
         return members
 
@@ -178,7 +181,9 @@ class EtcdCtl:
                 command.insert(2, endpoints)
 
         try:
-            return check_output(command, env=env).decode("utf-8")
+            return sp_run(
+                command, env=env, capture_output=True, check=True
+            ).stdout.decode("utf-8")
         except CalledProcessError as e:
             log(command, "ERROR")
             log(env, "ERROR")
