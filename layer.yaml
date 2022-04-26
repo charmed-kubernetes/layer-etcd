@@ -12,7 +12,7 @@ includes:
   - 'interface:etcd'
   - 'interface:etcd-proxy'
   - 'interface:grafana-dashboard'
-  - 'interface:nrpe-external-master'
+  - 'interface:nrpe-external-master'  # wokeignore:rule=master
   - 'interface:prometheus-manual'
 exclude:
   - .coverage

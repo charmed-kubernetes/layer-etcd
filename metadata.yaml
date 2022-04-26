@@ -10,6 +10,7 @@ description: |
   This charm supports deploying Etcd from the upstream binaries with resources.
   It will also TLS wrap your service, and distribute client keys to any service
   connecting. Etcd is a highly available key/value store.
+docs: https://discourse.charmhub.io/t/charm-etcd-docs-index/5592
 provides:
   db:
     interface: etcd
