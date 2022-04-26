@@ -1,5 +1,4 @@
 from charms import layer
-from charmhelpers.core.hookenv import unit_get
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_get, leader_set
@@ -41,7 +40,6 @@ class EtcdDatabag:
         self.port = config("port")
         self.management_port = config("management_port")
         # Live polled properties
-        self.public_address = unit_get("public-address")
         self.cluster_address = get_ingress_address("cluster")
         self.db_address = get_ingress_address("db")
         self.unit_name = os.getenv("JUJU_UNIT_NAME").replace("/", "")
