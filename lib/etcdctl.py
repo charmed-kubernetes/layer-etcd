@@ -91,14 +91,12 @@ class EtcdCtl:
             unit_name = unit.split(" ")[1].split("=")[-1]
             peer_urls = unit.split(" ")[2].split("=")[-1]
             client_urls = unit.split(" ")[3].split("=")[-1]
-            is_leader = unit.split(" ")[4].split("=")[-1]
 
             members[unit_name] = {
                 "unit_id": unit_guid,
                 "name": unit_name,
                 "peer_urls": peer_urls,
                 "client_urls": client_urls,
-                "is_leader": is_leader == "true",
             }
         return members
 

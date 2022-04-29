@@ -92,6 +92,8 @@ def unpack_resource():
 
 def is_v3_backup():
     ''' See if the backup file does not contain a wal file indicating a v3 backup '''
+    # ETCD v3 doesn't contain a wal file which leads to below command to fail
+    # With that we can differentiate between v3 and v2&v1
     cmd = "tar -tvf {0} --wildcards '*/wal'".format(SNAPSHOT_ARCHIVE)
     try:
         check_call(split(cmd))
@@ -152,7 +154,7 @@ def restore_v3_backup():
 
 def start_etcd_forked():
     ''' Start the etcd daemon temporarily to initiate new cluster details '''
-    raw = "/snap/etcd/current/bin/etcd -data-dir={0} -force-new-cluster"
+    raw = "/snap/etcd/current/bin/etcd -data-dir={0} -force-new-cluster --enable-v2"
     cmd = raw.format(ETCD_DATA_DIR)
     proc = Popen(split(cmd), stdout=PIPE, stderr=PIPE)
     return proc.pid
@@ -198,15 +200,22 @@ def reconfigure_client_advertise():
     while loop < MAX_WAIT:
         try:
             cmd = "/snap/bin/etcd.etcdctl member list"
-            members = check_output(split(cmd))
-            member_id = members.split(b',')[0].decode('utf-8')
+            members = check_output(split(cmd), env={"ETCDCTL_API": "2"})
+            member_id = members.split(b':')[0].decode('utf-8')
             break
         except CalledProcessError:
             loop = loop + 1
+            log(
+                "{}/{} member list failed during reconfiguring client advertise, retrying...".format(
+                    loop, MAX_WAIT
+                ),
+                "ERROR",
+            )
+            time.sleep(1)
 
-    raw_update = "/snap/bin/etcd.etcdctl member update {0} --peer-urls http://{1}:{2}"
+    raw_update = "/snap/bin/etcd.etcdctl member update {0} https://{1}:{2}"
     update_cmd = raw_update.format(member_id, CLUSTER_ADDRESS, ETCD_PORT)
-    check_call(split(update_cmd))
+    check_call(split(update_cmd), env={"ETCDCTL_API": "2"})
 
 
 def shasum_file(filepath):
@@ -242,8 +251,9 @@ def dismantle_cluster():
                     etcdctl.unregister(data['unit_id'], endpoint)
                     break
                 except EtcdCtl.CommandFailed:
-                    # Randomized back-off timer to let cluster settle
-                    time.sleep(random.randint(1, 3))
+                    # Back-off timer to let cluster settle
+                    log("Disconnecting {} failed, retrying...".format(name), "WARNING")
+                    time.sleep(_ + 1)
 
     etcd_conf.cluster_state = 'new'
     conf_path = os.path.join(etcd_conf.etcd_conf_dir, "etcd.conf.yml")
@@ -265,8 +275,10 @@ if __name__ == '__main__':
     dismantle_cluster()
     service_stop(opts['etcd_daemon_process'])
     if is_v3_backup():
+        log("v3 backup detected, restoring...", "INFO")
         restore_v3_backup()
     else:
+        log("v2 backup detected, restoring...", "INFO")
         unpack_resource()
         pid = start_etcd_forked()
         probe_forked_etcd()

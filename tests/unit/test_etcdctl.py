@@ -57,12 +57,11 @@ class TestEtcdCtl:
 
     def test_member_list(self, etcdctl):
         with patch("etcdctl.EtcdCtl.run") as comock:
-            comock.return_value = "7dc8404daa2b8ca0: name=etcd22 peerURLs=https://10.113.96.220:2380 clientURLs=https://10.113.96.220:2379 isLeader=true\n"  # noqa
+            comock.return_value = "7dc8404daa2b8ca0: name=etcd22 peerURLs=https://10.113.96.220:2380 clientURLs=https://10.113.96.220:2379\n"  # noqa
             members = etcdctl.member_list()
             assert members["etcd22"]["unit_id"] == "7dc8404daa2b8ca0"
             assert members["etcd22"]["peer_urls"] == "https://10.113.96.220:2380"
             assert members["etcd22"]["client_urls"] == "https://10.113.96.220:2379"
-            assert members["etcd22"]["is_leader"] is True
 
     def test_member_list_with_unstarted_member(self, etcdctl):
         """Validate we receive information only about members we can parse
@@ -70,12 +69,11 @@ class TestEtcdCtl:
         # 57fa5c39949c138e[unstarted]: peerURLs=http://10.113.96.80:2380
         # bb0f83ebb26386f7: name=etcd9 peerURLs=https://10.113.96.178:2380 clientURLs=https://10.113.96.178:2379
         with patch("etcdctl.EtcdCtl.run") as comock:
-            comock.return_value = "57fa5c39949c138e[unstarted]: peerURLs=http://10.113.96.80:2380]\nbb0f83ebb26386f7: name=etcd9 peerURLs=https://10.113.96.178:2380 clientURLs=https://10.113.96.178:2379 isLeader=true\n"  # noqa
+            comock.return_value = "57fa5c39949c138e[unstarted]: peerURLs=http://10.113.96.80:2380]\nbb0f83ebb26386f7: name=etcd9 peerURLs=https://10.113.96.178:2380 clientURLs=https://10.113.96.178:2379\n"  # noqa
             members = etcdctl.member_list()
             assert members["etcd9"]["unit_id"] == "bb0f83ebb26386f7"
             assert members["etcd9"]["peer_urls"] == "https://10.113.96.178:2380"
             assert members["etcd9"]["client_urls"] == "https://10.113.96.178:2379"
-            assert members["etcd9"]["is_leader"] is True
             assert "unstarted" in members.keys()
             assert members["unstarted"]["unit_id"] == "57fa5c39949c138e"
             assert "10.113.96.80:2380" in members["unstarted"]["peer_urls"]

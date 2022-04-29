@@ -25,6 +25,8 @@ import shutil
 import sys
 import tempfile
 
+from reactive.etcd import get_target_etcd_channel
+
 
 # Define some dict's containing paths of files we expect to see in
 # scenarios
@@ -161,7 +163,8 @@ if __name__ == '__main__':
     channel = config('channel')
 
     # We need to determine a default fallback channel since, there isn't an "auto" channel
-    if channel == "auto":
+    channel = get_target_etcd_channel()
+    if not channel:
         channel = "3.4/stable"
 
     if backup:
