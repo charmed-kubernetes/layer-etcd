@@ -16,6 +16,7 @@ certs = [
     "ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt",
 ]
 
+
 @pytest.mark.abort_on_fail
 async def test_build_and_deploy(ops_test: OpsTest):
     charm = await ops_test.build_charm(".")
@@ -36,6 +37,7 @@ async def test_build_and_deploy(ops_test: OpsTest):
     )
     action = await ops_test.model.applications["etcd"].units[0].run(nscmd)
     assert action.status == "completed"
+
 
 async def _get_leader(units: List[Unit]) -> Unit:
     for unit in units:
@@ -107,6 +109,7 @@ async def test_health_check(ops_test: OpsTest):
     assert action.status == "completed"
     assert "cluster is healthy" in action.results["output"]
 
+
 async def test_snap_action(ops_test: OpsTest):
     action = (
         await ops_test.model.applications["etcd"].units[0].run_action("snap-upgrade")
@@ -144,6 +147,7 @@ async def validate_running_snap_daemon(ops_test: OpsTest):
     assert action.status == "completed"
     assert "active" in action.results["Stdout"]
 
+
 async def test_snapshot_restore(ops_test: OpsTest):
     # Make sure there is only 1 unit of etcd running
     for unit in ops_test.model.applications["etcd"].units:
@@ -159,16 +163,12 @@ async def test_snapshot_restore(ops_test: OpsTest):
 
     filenames = {}
     for dataset in ["v2", "v3"]:
-        action = (
-            await leader.run_action("snapshot", **{"keys-version": dataset})
-        )
+        action = await leader.run_action("snapshot", **{"keys-version": dataset})
         await action.wait()
         log.info(action.status)
         log.info(action.results)
         assert action.status == "completed"
-        await leader.scp_from(
-            action.results["snapshot"]["path"], "."
-        )
+        await leader.scp_from(action.results["snapshot"]["path"], ".")
         filenames[dataset] = os.path.basename(action.results["snapshot"]["path"])
 
     await delete_data(ops_test)
@@ -184,7 +184,7 @@ async def test_snapshot_restore(ops_test: OpsTest):
     await ops_test.juju(
         "attach-resource", "etcd", "snapshot={}".format(filenames["v2"])
     )
-    
+
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
     action = await leader.run_action("restore")
     await action.wait()
@@ -212,7 +212,7 @@ async def test_snapshot_restore(ops_test: OpsTest):
     log.info(action.status)
     log.info(action.results)
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
-    
+
     assert action.status == "completed"
     assert not await is_data_present(ops_test, "v2")
     assert await is_data_present(ops_test, "v3")
