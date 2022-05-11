@@ -160,7 +160,6 @@ if __name__ == '__main__':
     # Control flow of the action
     backup_package = action_get('target')
     backup = action_get('backup')
-    channel = config('channel')
 
     # We need to determine a default fallback channel since, there isn't an "auto" channel
     channel = get_target_etcd_channel()
