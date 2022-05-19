@@ -29,6 +29,7 @@ class EtcdDatabag:
      'ca_certificate': '/etc/ssl/etcd/ca.crt',
      'server_certificate': '/etc/ssl/etcd/server.crt',
      'server_key': '/etc/ssl/etcd/server.key',
+     'tls_cipher_suites': '',
      'token': '8XG27B',
      'cluster_state': 'existing'}
     """
@@ -61,6 +62,8 @@ class EtcdDatabag:
         self.ca_certificate = ca_path
         self.server_certificate = crt_path
         self.server_key = key_path
+
+        self.tls_cipher_suites = config("tls_cipher_suites")
 
         # Cluster concerns
         self.cluster = self.db.get("etcd.cluster", "")
