@@ -260,6 +260,13 @@ def bind_to_all_interfaces_changed():
     set_state("etcd.rerender-config")
 
 
+@when("snap.installed.etcd")
+@when("config.changed.tls_cipher_suites")
+@when_not("upgrade.series.in-progress")
+def tls_cipher_suites_changed():
+    set_state("etcd.rerender-config")
+
+
 @when("etcd.rerender-config")
 @when_not("upgrade.series.in-progress")
 def rerender_config():
