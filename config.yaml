@@ -35,5 +35,6 @@ options:
     default: ""
     description: |
       A comma-separated list of cipher suites to use for communication between
-      the client/server and peers. If empty, Go will auto-populate the list.
-      Ciphers are prioritized by the order provided.
+      the client/server and peers. Ciphers are prioritized by the order provided.
+      If empty, the cipher suites will be auto-populated based on Mozilla's
+      "intermediate" cipher list.
