@@ -203,14 +203,20 @@ def reconfigure_client_advertise():
             members = check_output(split(cmd), env={"ETCDCTL_API": "2"})
             member_id = members.split(b':')[0].decode('utf-8')
             break
-        except CalledProcessError:
+        except CalledProcessError as ex:
             loop = loop + 1
             log(
                 "{}/{} member list failed during reconfiguring client advertise, retrying...".format(
                     loop, MAX_WAIT
                 ),
-                "ERROR",
+                "WARNING",
             )
+            if loop == MAX_WAIT:
+                log(
+                    "All member list tries failed during reconfiguring client advertise! Raising...",
+                    "ERROR",
+                )
+                raise Exception('All member list tries failed') from ex
             time.sleep(1)
 
     raw_update = "/snap/bin/etcd.etcdctl member update {0} https://{1}:{2}"
@@ -246,14 +252,23 @@ def dismantle_cluster():
     for name, data in etcdctl.member_list(endpoint).items():
         if name != my_name:
             log('Disconnecting {}'.format(name), hookenv.DEBUG)
-            for _ in range(5):
+            loop = 0
+            MAX_WAIT = 10
+
+            while loop < MAX_WAIT:
                 try:
                     etcdctl.unregister(data['unit_id'], endpoint)
                     break
-                except EtcdCtl.CommandFailed:
+                except EtcdCtl.CommandFailed as ex:
                     # Back-off timer to let cluster settle
                     log("Disconnecting {} failed, retrying...".format(name), "WARNING")
-                    time.sleep(_ + 1)
+                    if loop == MAX_WAIT:
+                        log(
+                            "All tries for disconnecting the member {} failed! Raising...".format(name),
+                            "ERROR",
+                        )
+                        raise Exception('Disconnecting a member from cluster failed') from ex
+                    time.sleep(1)
 
     etcd_conf.cluster_state = 'new'
     conf_path = os.path.join(etcd_conf.etcd_conf_dir, "etcd.conf.yml")

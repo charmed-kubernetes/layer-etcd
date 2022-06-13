@@ -103,7 +103,7 @@ class TestEtcdCtl:
     def test_etcdctl_environment_with_version_2(self, etcdctl):
         """Validate that environment gets set correctly
         spoiler alert; it shouldn't be set when passing --version"""
-        with patch("etcdctl.sp_run") as comock:
+        with patch("etcdctl.check_output") as comock:
             etcdctl.run("member list", api=2)
             api_version = comock.call_args[1].get("env").get("ETCDCTL_API")
             assert api_version == "2"
@@ -111,7 +111,7 @@ class TestEtcdCtl:
     def test_etcdctl_environment_with_version_3(self, etcdctl):
         """Validate that environment gets set correctly
         spoiler alert; it shouldn't be set when passing --version"""
-        with patch("etcdctl.sp_run") as comock:
+        with patch("etcdctl.check_output") as comock:
             etcdctl.run("member list", api=3)
             api_version = comock.call_args[1].get("env").get("ETCDCTL_API")
             assert api_version == "3"
