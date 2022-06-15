@@ -25,6 +25,8 @@ import shutil
 import sys
 import tempfile
 
+from reactive.etcd import get_target_etcd_channel
+
 
 # Define some dict's containing paths of files we expect to see in
 # scenarios
@@ -40,7 +42,7 @@ deb_paths = {'config': ['/etc/ssl/etcd/ca.crt',
 # Snappy only cares about the config objects. Data validation will come
 # at a later date. We can etcdctl ls / and then verify the data made it
 # post migration.
-snap_paths = {'config': ['/var/snap/etcd/common/etcd.conf',
+snap_paths = {'config': ['/var/snap/etcd/common/etcd.conf.yml',
                          '/var/snap/etcd/common/server.crt',
                          '/var/snap/etcd/common/server.key',
                          '/var/snap/etcd/common/ca.crt'],
@@ -158,7 +160,11 @@ if __name__ == '__main__':
     # Control flow of the action
     backup_package = action_get('target')
     backup = action_get('backup')
-    channel = config('channel')
+
+    # We need to determine a default fallback channel since, there isn't an "auto" channel
+    channel = get_target_etcd_channel()
+    if not channel:
+        channel = "3.4/stable"
 
     if backup:
         backup_status = create_migration_backup(backup_package)
