@@ -261,6 +261,7 @@ def dismantle_cluster():
                     break
                 except EtcdCtl.CommandFailed as ex:
                     # Back-off timer to let cluster settle
+                    loop = loop + 1
                     log("Disconnecting {} failed, retrying...".format(name), "WARNING")
                     if loop == MAX_WAIT:
                         log(

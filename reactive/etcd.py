@@ -679,6 +679,7 @@ def perform_self_unregistration(cluster=None):
             break
         except EtcdCtl.CommandFailed as ex:
             # Randomized back-off timer to let cluster settle
+            loop = loop + 1
             log("Trying to unregister self from the cluster failed, retrying...")
             if loop == MAX_WAIT:
                 log(
