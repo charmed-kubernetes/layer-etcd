@@ -1,5 +1,6 @@
 #!/usr/local/sbin/charm-env python3
 
+import random
 from charms import layer
 from charms.templating.jinja2 import render
 from charmhelpers.core import unitdata
@@ -90,13 +91,15 @@ def unpack_resource():
 
 
 def is_v3_backup():
-    ''' See if the backup file contains a db file indicating a v3 backup '''
-    cmd = "tar -tvf {0} --wildcards '*/db'".format(SNAPSHOT_ARCHIVE)
+    ''' See if the backup file does not contain a wal file indicating a v3 backup '''
+    # ETCD v3 doesn't contain a wal file which leads to below command to fail
+    # With that we can differentiate between v3 and v2&v1
+    cmd = "tar -tvf {0} --wildcards '*/wal'".format(SNAPSHOT_ARCHIVE)
     try:
         check_call(split(cmd))
     except CalledProcessError:
-        return False
-    return True
+        return True
+    return False
 
 
 def restore_v3_backup():
@@ -151,7 +154,7 @@ def restore_v3_backup():
 
 def start_etcd_forked():
     ''' Start the etcd daemon temporarily to initiate new cluster details '''
-    raw = "/snap/etcd/current/bin/etcd -data-dir={0} -force-new-cluster"
+    raw = "/snap/etcd/current/bin/etcd -data-dir={0} -force-new-cluster --enable-v2"
     cmd = raw.format(ETCD_DATA_DIR)
     proc = Popen(split(cmd), stdout=PIPE, stderr=PIPE)
     return proc.pid
@@ -190,13 +193,35 @@ def probe_forked_etcd():
 def reconfigure_client_advertise():
     ''' Reconfigure the backup to use host network addresses for client advertise
         instead of the assumed localhost addressing '''
-    cmd = "/snap/bin/etcd.etcdctl member list"
-    members = check_output(split(cmd))
-    member_id = members.split(b':')[0].decode('utf-8')
 
-    raw_update = "/snap/bin/etcd.etcdctl member update {0} http://{1}:{2}"
+    loop = 0
+    MAX_WAIT = 10
+
+    while loop < MAX_WAIT:
+        try:
+            cmd = "/snap/bin/etcd.etcdctl member list"
+            members = check_output(split(cmd), env={"ETCDCTL_API": "2"})
+            member_id = members.split(b':')[0].decode('utf-8')
+            break
+        except CalledProcessError as ex:
+            loop = loop + 1
+            log(
+                "{}/{} member list failed during reconfiguring client advertise, retrying...".format(
+                    loop, MAX_WAIT
+                ),
+                "WARNING",
+            )
+            if loop == MAX_WAIT:
+                log(
+                    "All member list tries failed during reconfiguring client advertise! Raising...",
+                    "ERROR",
+                )
+                raise Exception('All member list tries failed') from ex
+            time.sleep(1)
+
+    raw_update = "/snap/bin/etcd.etcdctl member update {0} https://{1}:{2}"
     update_cmd = raw_update.format(member_id, CLUSTER_ADDRESS, ETCD_PORT)
-    check_call(split(update_cmd))
+    check_call(split(update_cmd), env={"ETCDCTL_API": "2"})
 
 
 def shasum_file(filepath):
@@ -227,7 +252,24 @@ def dismantle_cluster():
     for name, data in etcdctl.member_list(endpoint).items():
         if name != my_name:
             log('Disconnecting {}'.format(name), hookenv.DEBUG)
-            etcdctl.unregister(data['unit_id'], endpoint)
+            loop = 0
+            MAX_WAIT = 10
+
+            while loop < MAX_WAIT:
+                try:
+                    etcdctl.unregister(data['unit_id'], endpoint)
+                    break
+                except EtcdCtl.CommandFailed as ex:
+                    # Back-off timer to let cluster settle
+                    loop = loop + 1
+                    log("Disconnecting {} failed, retrying...".format(name), "WARNING")
+                    if loop == MAX_WAIT:
+                        log(
+                            "All tries for disconnecting the member {} failed! Raising...".format(name),
+                            "ERROR",
+                        )
+                        raise Exception('Disconnecting a member from cluster failed') from ex
+                    time.sleep(1)
 
     etcd_conf.cluster_state = 'new'
     conf_path = os.path.join(etcd_conf.etcd_conf_dir, "etcd.conf.yml")
@@ -249,8 +291,10 @@ if __name__ == '__main__':
     dismantle_cluster()
     service_stop(opts['etcd_daemon_process'])
     if is_v3_backup():
+        log("v3 backup detected, restoring...", "INFO")
         restore_v3_backup()
     else:
+        log("v2 backup detected, restoring...", "INFO")
         unpack_resource()
         pid = start_etcd_forked()
         probe_forked_etcd()

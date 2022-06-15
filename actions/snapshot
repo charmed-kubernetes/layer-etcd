@@ -28,7 +28,7 @@ mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 
 if [ "${ETCD_KEYS_VERSION}" == "v2" ]; then
   # Dump the data currently in the cluster
-  /snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+  ETCDCTL_API=2 /snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 elif [ "${ETCD_KEYS_VERSION}" == "v3" ]; then
   mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
   cp $ETCD_DATA_DIR/member/snap/db $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID

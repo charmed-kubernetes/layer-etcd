@@ -677,7 +677,7 @@ def force_rejoin_requested():
     check_cluster_health()
 
 
-@hook("cluster-relation-broken")
+@hook("stop")
 def perform_self_unregistration(cluster=None):
     """Attempt self removal during unit teardown."""
     etcdctl = EtcdCtl()
@@ -685,7 +685,23 @@ def perform_self_unregistration(cluster=None):
     unit_name = os.getenv("JUJU_UNIT_NAME").replace("/", "")
     members = etcdctl.member_list()
     # Self Unregistration
-    etcdctl.unregister(members[unit_name]["unit_id"], leader_address)
+    loop = 0
+    MAX_WAIT = 10
+    while loop < MAX_WAIT:
+        try:
+            etcdctl.unregister(members[unit_name]["unit_id"], leader_address)
+            break
+        except EtcdCtl.CommandFailed as ex:
+            # Randomized back-off timer to let cluster settle
+            loop = loop + 1
+            log("Trying to unregister self from the cluster failed, retrying...")
+            if loop == MAX_WAIT:
+                log(
+                    "All tries for unregistration failed! Switching status to blocked..."
+                )
+                status.blocked("Unregistration failed for the departing unit/s.")
+                raise Exception("All tries for unregistration failed") from ex
+            time.sleep(1)
 
 
 @hook("data-storage-attached")

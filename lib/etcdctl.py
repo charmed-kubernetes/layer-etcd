@@ -2,6 +2,7 @@ from charms import layer
 from charmhelpers.core.hookenv import log
 from subprocess import CalledProcessError
 from subprocess import check_output
+from subprocess import STDOUT
 import os
 
 
@@ -178,7 +179,7 @@ class EtcdCtl:
                 command.insert(2, endpoints)
 
         try:
-            return check_output(command, env=env).decode("utf-8")
+            return check_output(command, env=env, stderr=STDOUT).decode("utf-8")
         except CalledProcessError as e:
             log(command, "ERROR")
             log(env, "ERROR")
