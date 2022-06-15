@@ -686,7 +686,7 @@ def perform_self_unregistration(cluster=None):
                     "All tries for unregistration failed! Switching status to blocked..."
                 )
                 status.blocked("Unregistration failed for the departing unit/s.")
-                raise Exception('All tries for unregistration failed') from ex
+                raise Exception("All tries for unregistration failed") from ex
             time.sleep(1)
 
 
