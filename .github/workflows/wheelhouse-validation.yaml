@@ -1,0 +1,7 @@
+name: Charmed Kubernetes Reactive wheelhouse test
+on: 
+  - pull_request
+
+jobs:
+  validate-wheelhouse:
+    uses: charmed-kubernetes/workflows/.github/workflows/validate-wheelhouse.yaml@main
