@@ -18,11 +18,11 @@ certs = [
 
 
 @pytest.mark.abort_on_fail
-async def test_build_and_deploy(ops_test: OpsTest):
+async def test_build_and_deploy(series: str, ops_test: OpsTest):
     charm = await ops_test.build_charm(".")
-    await ops_test.model.deploy("containers-easyrsa", application_name="easyrsa")
+    await ops_test.model.deploy("easyrsa", application_name="easyrsa", channel="edge")
     resources = {"snapshot": "snapshot.tar.gz"}
-    await ops_test.model.deploy(charm, resources=resources)
+    await ops_test.model.deploy(charm, resources=resources, series=series)
     await ops_test.model.add_relation("easyrsa:client", "etcd:certificates")
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
 

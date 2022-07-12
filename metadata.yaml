@@ -43,10 +43,10 @@ resources:
       [DEPRECATED] in favor of using a Snap Store Proxy.
       See https://ubuntu.com/kubernetes/docs/proxies for more details.
 series:
-  - jammy
   - focal
   - bionic
   - xenial
+  - jammy
 storage:
   data:
    type: block
