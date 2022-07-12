@@ -27,10 +27,11 @@ ARCHIVE=etcd-snapshot-$DATE_STAMP.tar.gz
 mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 
 if [ "${ETCD_KEYS_VERSION}" == "v2" ]; then
-  # Dump the data currently in the cluster
-  ETCDCTL_API=2 /snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
+  # Dump the data currently in the cluster from the snap, then move to $HOME
+  V2_SNAPSHOT=$ETCD_DATA_DIR/v2-snapshots/$JUJU_ACTION_UUID
+  ETCDCTL_API=2 /snap/bin/etcd.etcdctl backup --data-dir $ETCD_DATA_DIR --backup-dir $V2_SNAPSHOT
+  mv $V2_SNAPSHOT $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 elif [ "${ETCD_KEYS_VERSION}" == "v3" ]; then
-  mkdir -p $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
   cp $ETCD_DATA_DIR/member/snap/db $ETCD_BACKUP_TARGET_DIR/$JUJU_ACTION_UUID
 else
   action-fail "keys-version must be either v2 or v3"
