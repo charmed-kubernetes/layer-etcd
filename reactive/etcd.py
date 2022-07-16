@@ -677,8 +677,17 @@ def force_rejoin_requested():
     check_cluster_health()
 
 
+@when("cluster-relation-broken")
+def cluster_relation_broken(cluster=None):
+    perform_self_unregistration()
+
+
 @hook("stop")
-def perform_self_unregistration(cluster=None):
+def stop_hook():
+    perform_self_unregistration(skip_exception=True)
+
+
+def perform_self_unregistration(skip_exception=None):
     """Attempt self removal during unit teardown."""
     etcdctl = EtcdCtl()
     leader_address = leader_get("leader_address")
@@ -700,7 +709,8 @@ def perform_self_unregistration(cluster=None):
                     "All tries for unregistration failed! Switching status to blocked..."
                 )
                 status.blocked("Unregistration failed for the departing unit/s.")
-                raise Exception("All tries for unregistration failed") from ex
+                if not skip_exception:
+                    raise Exception("All tries for unregistration failed") from ex
             time.sleep(1)
 
 
