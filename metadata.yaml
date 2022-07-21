@@ -46,7 +46,6 @@ series:
   - focal
   - jammy
   - bionic
-  - xenial
 storage:
   data:
    type: block
