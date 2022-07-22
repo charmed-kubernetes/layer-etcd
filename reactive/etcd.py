@@ -18,7 +18,7 @@ from charms.reactive import hook
 from charms.reactive import register_trigger
 from charms.reactive.helpers import data_changed
 
-from charms.templating.jinja2 import render
+from charmhelpers.core.templating import render
 
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
