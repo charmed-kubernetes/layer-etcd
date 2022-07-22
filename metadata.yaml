@@ -44,8 +44,8 @@ resources:
       See https://ubuntu.com/kubernetes/docs/proxies for more details.
 series:
   - focal
+  - jammy
   - bionic
-  - xenial
 storage:
   data:
    type: block
