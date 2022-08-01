@@ -18,7 +18,7 @@ from charms.reactive import hook
 from charms.reactive import register_trigger
 from charms.reactive.helpers import data_changed
 
-from charms.templating.jinja2 import render
+from charmhelpers.core.templating import render
 
 from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
@@ -257,6 +257,13 @@ def follower_config_changed():
 @when("config.changed.bind_to_all_interfaces")
 @when_not("upgrade.series.in-progress")
 def bind_to_all_interfaces_changed():
+    set_state("etcd.rerender-config")
+
+
+@when("snap.installed.etcd")
+@when("config.changed.tls_cipher_suites")
+@when_not("upgrade.series.in-progress")
+def tls_cipher_suites_changed():
     set_state("etcd.rerender-config")
 
 
@@ -670,15 +677,41 @@ def force_rejoin_requested():
     check_cluster_health()
 
 
-@hook("cluster-relation-broken")
-def perform_self_unregistration(cluster=None):
+@when("cluster-relation-broken")
+def cluster_relation_broken(cluster=None):
+    perform_self_unregistration()
+
+
+@hook("stop")
+def stop_hook():
+    perform_self_unregistration(skip_exception=True)
+
+
+def perform_self_unregistration(skip_exception=None):
     """Attempt self removal during unit teardown."""
     etcdctl = EtcdCtl()
     leader_address = leader_get("leader_address")
     unit_name = os.getenv("JUJU_UNIT_NAME").replace("/", "")
     members = etcdctl.member_list()
     # Self Unregistration
-    etcdctl.unregister(members[unit_name]["unit_id"], leader_address)
+    loop = 0
+    MAX_WAIT = 10
+    while loop < MAX_WAIT:
+        try:
+            etcdctl.unregister(members[unit_name]["unit_id"], leader_address)
+            break
+        except EtcdCtl.CommandFailed as ex:
+            # Randomized back-off timer to let cluster settle
+            loop = loop + 1
+            log("Trying to unregister self from the cluster failed, retrying...")
+            if loop == MAX_WAIT:
+                log(
+                    "All tries for unregistration failed! Switching status to blocked..."
+                )
+                status.blocked("Unregistration failed for the departing unit/s.")
+                if not skip_exception:
+                    raise Exception("All tries for unregistration failed") from ex
+            time.sleep(1)
 
 
 @hook("data-storage-attached")

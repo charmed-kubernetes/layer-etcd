@@ -30,3 +30,13 @@ options:
     description: |
       The service binds to all network interfaces if true. The service binds
       only to the first found bind address of each relation if false
+  tls_cipher_suites:
+    type: string
+    default: ""
+    description: |
+      Applies to etcd 3.x+ only.
+      A comma-separated list of cipher suites to use for communication between
+      the client/server and peers. Ciphers are prioritized by the order provided.
+      If empty, the cipher suites will be auto-populated based on Mozilla's
+      "intermediate" cipher list:
+        https://wiki.mozilla.org/Security/Server_Side_TLS
