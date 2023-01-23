@@ -354,6 +354,7 @@ def send_cluster_details(proxy):
     etcdctl = EtcdCtl()
     peers = etcdctl.member_list()
     cluster = []
+    client_urls = []
     for peer in peers:
         thispeer = peers[peer]
         # Potential member doing registration. Default to skip
@@ -361,8 +362,10 @@ def send_cluster_details(proxy):
             continue
         peer_string = "{}={}".format(thispeer["name"], thispeer["peer_urls"])
         cluster.append(peer_string)
+        client_urls.append(thispeer["client_urls"])
 
     proxy.set_cluster_string(",".join(cluster))
+    proxy.set_client_urls(",".join(client_urls))
 
 
 @when("config.changed.channel")
