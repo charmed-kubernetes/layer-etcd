@@ -169,6 +169,7 @@ def prepare_tls_certificates(tls):
     sans.update(get_ingress_addresses("db"))
     sans.update(get_ingress_addresses("cluster"))
     sans.add(socket.gethostname())
+    sans.add("127.0.0.1")
 
     # add cluster peers as alt names when present
     cluster = endpoint_from_flag("cluster.joined")
