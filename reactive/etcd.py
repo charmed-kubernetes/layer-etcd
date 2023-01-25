@@ -571,15 +571,12 @@ def set_snapd_timer():
 def tls_state_control():
     """This state represents all the complexity of handling the TLS certs.
     instead of stacking decorators, this state condenses it into a single
-    state we can gate on before progressing with secure setup. Also handles
-    ensuring users of the system can access the TLS certificates"""
+    state we can gate on before progressing with secure setup."""
 
     bag = EtcdDatabag()
     if not os.path.isdir(bag.etcd_conf_dir):
         hookenv.log("Waiting for etcd conf creation.")
         return
-    cmd = ["chown", "-R", "root:ubuntu", bag.etcd_conf_dir]
-    check_call(cmd)
     set_state("etcd.ssl.placed")
 
 
@@ -609,7 +606,7 @@ def tls_update():
 @when("snap.installed.etcd")
 @when_not("etcd.ssl.exported")
 def render_default_user_ssl_exports():
-    """Add secure credentials to default user environment configs,
+    """Add secure credentials to default user environment config for root,
     transparently adding TLS"""
     opts = layer.options("tls-client")
 
@@ -639,8 +636,6 @@ def render_default_user_ssl_exports():
             "export ETCDCTL_CA_FILE={}\n".format(ca_path),
         ]
 
-    with open("/home/ubuntu/.bash_aliases", "w") as fp:
-        fp.writelines(evars)
     with open("/root/.bash_aliases", "w") as fp:
         fp.writelines(evars)
 
