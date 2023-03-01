@@ -281,6 +281,7 @@ def rerender_config():
 
 
 @when("cluster.joined")
+@when("etcd.registered")
 def set_db_ingress_address(cluster):
     """Send db ingress address to peers on the cluster relation"""
     address = get_ingress_address("db")
