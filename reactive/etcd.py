@@ -281,6 +281,7 @@ def rerender_config():
 
 
 @when("cluster.joined")
+@when("etcd.registered")
 def set_db_ingress_address(cluster):
     """Send db ingress address to peers on the cluster relation"""
     address = get_ingress_address("db")
@@ -290,6 +291,7 @@ def set_db_ingress_address(cluster):
 @when("db.connected")
 @when("etcd.ssl.placed")
 @when("cluster.joined")
+@when("etcd.registered")
 def send_cluster_connection_details(cluster, db):
     """Need to set the cluster connection string and
     the client key and certificate on the relation object."""
@@ -318,6 +320,7 @@ def send_cluster_connection_details(cluster, db):
 @when("db.connected")
 @when("etcd.ssl.placed")
 @when_not("cluster.joined")
+@when("etcd.registered")
 def send_single_connection_details(db):
     """ """
     cert = read_tls_cert("client.crt")
@@ -888,6 +891,7 @@ def remove_nrpe_config(nagios=None):
 
 
 @when("endpoint.prometheus.joined", "leadership.is_leader", "certificates.ca.available")
+@when("etcd.registered")
 def register_prometheus_jobs():
     # This function is not guarded with `when_not("prometheus.configured")`
     # to account for possible changes of etcd units IP adresses and for when
