@@ -1,3 +1,5 @@
+from ipaddress import ip_address
+
 from charmhelpers.contrib.templating.jinja import render
 from charmhelpers.core.hookenv import (
     network_get,
@@ -7,6 +9,18 @@ from charmhelpers.core.hookenv import (
 import json
 
 GRAFANA_DASHBOARD_FILE = "grafana_dashboard.json.j2"
+
+
+def build_uri(schema, address, port) -> str:
+    """Build uris with ipv6 addresses in square-brakets []."""
+    try:
+        address = ip_address(address)
+    except ValueError:
+        pass
+    else:
+        if address.version == 6:
+            address = f"[{address}]"
+    return f"{schema}://{address}:{port}"
 
 
 def get_ingress_addresses(endpoint_name):

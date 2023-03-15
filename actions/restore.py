@@ -15,7 +15,7 @@ from charmhelpers.core.hookenv import _run_atexit
 from charmhelpers.core.host import chdir
 from charmhelpers.core.host import service_start
 from charmhelpers.core.host import service_stop
-from etcd_lib import get_ingress_address
+from etcd_lib import get_ingress_address, build_uri
 from etcdctl import EtcdCtl
 from etcd_databag import EtcdDatabag
 from shlex import split
@@ -130,9 +130,11 @@ def restore_v3_backup():
     else:
         # configuration does not contain initilization params
         # probably coming from an etcd upgrades from etcd2
-        initial_cluster = "{}=https://{}:2380".format(config["name"], CLUSTER_ADDRESS)
+        initial_cluster = (
+            f"{config['name']}={build_uri('https', CLUSTER_ADDRESS, 2380)}"
+        )
         initial_cluster_token = CLUSTER_ADDRESS
-        initial_urls = "https://{}:2380".format(CLUSTER_ADDRESS)
+        initial_urls = build_uri("https", CLUSTER_ADDRESS, 2380)
         cmd = cmd.format(
             initial_cluster, initial_cluster_token, initial_urls, config["name"]
         )
@@ -219,8 +221,10 @@ def reconfigure_client_advertise():
                 raise Exception("All member list tries failed") from ex
             time.sleep(1)
 
-    raw_update = "/snap/bin/etcd.etcdctl member update {0} https://{1}:{2}"
-    update_cmd = raw_update.format(member_id, CLUSTER_ADDRESS, ETCD_PORT)
+    raw_update = "/snap/bin/etcd.etcdctl member update {0} {1}"
+    update_cmd = raw_update.format(
+        member_id, build_uri("https", CLUSTER_ADDRESS, ETCD_PORT)
+    )
     check_call(split(update_cmd), env={"ETCDCTL_API": "2"})
 
 
@@ -247,7 +251,7 @@ def dismantle_cluster():
     etcd_conf = EtcdDatabag()
 
     my_name = etcd_conf.unit_name
-    endpoint = "https://{}:{}".format(etcd_conf.cluster_address, etcd_conf.port)
+    endpoint = build_uri("https", etcd_conf.cluster_address, etcd_conf.port)
     for name, data in etcdctl.member_list(endpoint).items():
         if name != my_name:
             log("Disconnecting {}".format(name), hookenv.DEBUG)

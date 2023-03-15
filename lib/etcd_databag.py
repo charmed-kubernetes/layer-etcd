@@ -5,7 +5,7 @@ from charmhelpers.core.hookenv import leader_get, leader_set
 from charmhelpers.core import unitdata
 from charms.reactive import is_state
 from etcd_lib import get_ingress_address
-from etcd_lib import get_bind_address
+from etcd_lib import get_bind_address, build_uri
 
 import string
 import random
@@ -36,6 +36,7 @@ class EtcdDatabag:
 
     def __init__(self):
         self.db = unitdata.kv()
+        self.build_uri = build_uri
         self.cluster_bind_address = self.get_bind_address("cluster")
         self.db_bind_address = self.get_bind_address("db")
         self.port = config("port")
