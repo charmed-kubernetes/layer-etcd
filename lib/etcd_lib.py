@@ -66,18 +66,18 @@ def get_bind_address(endpoint_name):
     #
     # bind-addresses:
     # - macaddress: 02:d0:9e:31:d9:e0
-    # interfacename: ens5
-    # addresses:
-    # - hostname: ""
-    #   address: 172.31.5.4
-    #   cidr: 172.31.0.0/20
-    # - hostname: ""
-    #   address: 172.31.5.4
-    #   cidr: 172.31.0.0/20
+    #   interfacename: ens5
+    #   addresses:
+    #   - hostname: ""
+    #     address: 172.31.5.4
+    #     cidr: 172.31.0.0/20
+    #   - hostname: ""
+    #     address: 172.31.5.4
+    #     cidr: 172.31.0.0/20
     # - macaddress: 8a:32:d7:8d:f6:9a
-    # interfacename: fan-252
-    # addresses:
-    # - hostname: ""
+    #   interfacename: fan-252
+    #   addresses:
+    #   - hostname: ""
     #     address: 252.5.4.1
     #     cidr: 252.0.0.0/12
     # egress-subnets:
