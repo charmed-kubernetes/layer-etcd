@@ -4,6 +4,7 @@ from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
 import os
+from etcd_lib import build_uri
 
 
 def etcdctl_command():
@@ -205,6 +206,6 @@ def get_connection_string(members, port, protocol="https"):
     port and protocol (defaults to https)"""
     connections = []
     for address in members:
-        connections.append("{}://{}:{}".format(protocol, address, port))
+        connections.append(build_uri(protocol, address, port))
     connection_string = ",".join(connections)
     return connection_string

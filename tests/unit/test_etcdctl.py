@@ -3,6 +3,8 @@ from unittest.mock import patch, MagicMock
 
 import reactive.etcd
 
+import etcd_lib
+
 from etcdctl import (
     EtcdCtl,
     etcdctl_command,
@@ -161,7 +163,12 @@ class TestEtcdCtl:
         )
         reactive.etcd.set_flag.assert_called_with("prometheus.configured")
 
-    def test_series_upgrade(self):
+    def test_series_upgrade(self, mocker):
+        mocker.patch.object(
+            etcd_lib,
+            "get_ingress_addresses",
+            return_value=["10.0.0.1", "2001:0dc8::0001"],
+        )
         assert host.service_pause.call_count == 0
         assert host.service_resume.call_count == 0
         assert status.blocked.call_count == 0
@@ -188,8 +195,15 @@ class TestEtcdCtl:
     @patch("shutil.rmtree")
     @patch("os.path.join")
     @patch("time.sleep")
-    def test_force_rejoin(self, sleep, path_join, rmtree, path_exists, register_node):
+    def test_force_rejoin(
+        self, sleep, path_join, rmtree, path_exists, register_node, mocker
+    ):
         """Test that force_rejoin performs required steps."""
+        mocker.patch.object(
+            etcd_lib,
+            "get_ingress_addresses",
+            return_value=["10.0.0.1", "2001:0dc8::0001"],
+        )
         data_dir = "/foo/bar"
         path_exists.return_value = True
         path_join.return_value = data_dir

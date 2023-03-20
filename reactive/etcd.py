@@ -42,6 +42,7 @@ from etcdctl import EtcdCtl
 from etcdctl import get_connection_string
 from etcd_databag import EtcdDatabag
 from etcd_lib import (
+    build_uri,
     get_ingress_address,
     get_ingress_addresses,
     render_grafana_dashboard,
@@ -460,7 +461,7 @@ def register_node_with_leader(cluster):
     try:
         # Check if we are already registered. Unregister ourselves if we are so
         # we can register from scratch.
-        peer_url = "https://%s:%s" % (bag.cluster_address, bag.management_port)
+        peer_url = build_uri("https", bag.cluster_address, bag.management_port)
         members = etcdctl.member_list(leader_address)
         for _, member in members.items():
             if member["peer_urls"] == peer_url:
