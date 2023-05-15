@@ -905,6 +905,9 @@ def register_prometheus_jobs():
     peer_ips = cluster.get_db_ingress_addresses() if cluster else []
     peer_ips.append(get_ingress_address("db"))
     targets = ["{}:{}".format(ip, config("port")) for ip in peer_ips]
+    cert = read_tls_cert("client.crt")
+    key = read_tls_cert("client.key")
+    ca = read_tls_cert("ca.crt")
     log("Configuring Prometheus scrape targets: {}".format(targets), DEBUG)
     prometheus.register_job(
         job_name="etcd",
@@ -914,6 +917,9 @@ def register_prometheus_jobs():
                 {"targets": targets},
             ],
         },
+        ca_cert=ca,
+        client_cert=cert,
+        client_key=key,
     )
     set_flag("prometheus.configured")
 
