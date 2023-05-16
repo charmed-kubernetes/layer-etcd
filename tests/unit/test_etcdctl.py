@@ -147,10 +147,16 @@ class TestEtcdCtl:
         targets = ["{}:{}".format(ingress_address, port)]
         prometheus_mock = MagicMock()
         etcd_cluster_mock = MagicMock()
+        cert_mock = MagicMock()
+        key_mock = MagicMock()
+        ca_mock = MagicMock()
         job_data = {"scheme": "https", "static_configs": [{"targets": targets}]}
 
         etcd_cluster_mock.get_db_ingress_addresses.return_value = []
         endpoint_from_flag.side_effect = [prometheus_mock, etcd_cluster_mock]
+        mocker.patch.object(
+            reactive.etcd, "read_tls_cert", side_effect=[cert_mock, key_mock, ca_mock]
+        )
         mocker.patch.object(
             reactive.etcd, "get_ingress_address", return_value=ingress_address
         )
@@ -159,7 +165,11 @@ class TestEtcdCtl:
         register_prometheus_jobs()
 
         prometheus_mock.register_job.assert_called_with(
-            job_name="etcd", job_data=job_data
+            job_name="etcd",
+            job_data=job_data,
+            ca_cert=ca_mock,
+            client_cert=cert_mock,
+            client_key=key_mock,
         )
         reactive.etcd.set_flag.assert_called_with("prometheus.configured")
 
