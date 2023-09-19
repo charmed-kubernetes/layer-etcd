@@ -103,7 +103,7 @@ async def test_node_scale_down(ops_test: OpsTest):
     if len(ops_test.model.applications["etcd"].units) == 1:
         return
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
-    await leader.destroy()
+    await ops_test.model.destroy_unit(leader.name)
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
 
 
