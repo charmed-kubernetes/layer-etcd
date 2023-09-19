@@ -3,6 +3,7 @@ from charmhelpers.core.hookenv import log
 from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
+from typing import Optional
 import os
 from etcd_lib import build_uri
 
@@ -66,7 +67,7 @@ class EtcdCtl:
         """
         return self.run(["member", "remove", unit_id], endpoints=leader_address, api=2)
 
-    def member_list(self, leader_address=False):
+    def member_list(self, leader_address=None):
         """Returns the output from `etcdctl member list` as a python dict
         organized by unit_name, containing all the data-points in the resulting
         response."""
@@ -122,7 +123,7 @@ class EtcdCtl:
         organized by topical information with detailed unit output"""
         health = {}
         try:
-            out = self.run("cluster-health", endpoints=False, api=2)
+            out = self.run("cluster-health", endpoints=None, api=2)
             if output_only:
                 return out
             health_output = out.strip("\n").split("\n")
@@ -134,7 +135,7 @@ class EtcdCtl:
             health["units"] = []
         return health
 
-    def run(self, arguments, endpoints=None, api=3):
+    def run(self, arguments, endpoints: Optional[str] = None, api=3):
         """Wrapper to subprocess calling output. This is a convenience
         method to clean up the calls to subprocess and append TLS data"""
         env = {}
@@ -158,7 +159,7 @@ class EtcdCtl:
         else:
             raise NotImplementedError("etcd api version {} not supported".format(api))
 
-        if endpoints is None:
+        if not endpoints:
             endpoints = "https://127.0.0.1:2379"
 
         if isinstance(arguments, str):
@@ -170,12 +171,11 @@ class EtcdCtl:
                 "arguments not correct type; must be string, list or tuple"
             )
 
-        if endpoints is not False:
-            if api == 3:
-                command.extend(["--endpoints", endpoints])
-            elif api == 2:
-                command.insert(1, "--endpoint")
-                command.insert(2, endpoints)
+        if api == 3:
+            command.extend(["--endpoints", endpoints])
+        elif api == 2:
+            command.insert(1, "--endpoint")
+            command.insert(2, endpoints)
 
         try:
             return check_output(command, env=env, stderr=STDOUT).decode("utf-8")

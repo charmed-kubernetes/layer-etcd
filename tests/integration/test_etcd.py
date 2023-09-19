@@ -1,9 +1,10 @@
 from typing import List
-import pytest
 from pytest_operator.plugin import OpsTest
 from juju.unit import Unit
 import logging
 import os
+from pathlib import Path
+import pytest
 
 log = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ async def validate_running_snap_daemon(ops_test: OpsTest):
     assert "active" in action.results["stdout"]
 
 
-async def test_snapshot_restore(ops_test: OpsTest):
+async def test_snapshot_restore(ops_test: OpsTest, tmp_path: Path):
     # Make sure there is only 1 unit of etcd running
     for unit in ops_test.model.applications["etcd"].units:
         if len(ops_test.model.applications["etcd"].units) > 1:
@@ -166,22 +167,17 @@ async def test_snapshot_restore(ops_test: OpsTest):
         log.info(action.status)
         log.info(action.results)
         assert action.status == "completed"
-        await leader.scp_from(action.results["snapshot"]["path"], ".")
-        filenames[dataset] = os.path.basename(action.results["snapshot"]["path"])
+        await leader.scp_from(action.results["snapshot"]["path"], tmp_path)
+        filenames[dataset] = tmp_path / os.path.basename(action.results["snapshot"]["path"])
 
     await delete_data(ops_test)
     assert not await is_data_present(ops_test, "v2")
     assert not await is_data_present(ops_test, "v3")
 
-    # Below code is better but waiting for python-libjuju #654 fix, can't attach binary files yet due to the bug
-    # with open(filenames["v2"], mode='rb') as file:
-    #     ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v2"], file)
+    with filenames["v2"].open(mode='rb') as file:
+        ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v2"], file)
 
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
-
-    await ops_test.juju(
-        "attach-resource", "etcd", "snapshot={}".format(filenames["v2"])
-    )
 
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
     action = await leader.run_action("restore")
@@ -194,15 +190,10 @@ async def test_snapshot_restore(ops_test: OpsTest):
     assert await is_data_present(ops_test, "v2")
     assert not await is_data_present(ops_test, "v3")
 
-    # Below code is better but waiting for python-libjuju #654 fix, can't attach binary files yet due to the bug
-    # with open(filenames["v3"], mode='rb') as file:
-    #     ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v3"], file)
+    with filenames["v3"].open(mode='rb') as file:
+        ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v3"], file)
 
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
-
-    await ops_test.juju(
-        "attach-resource", "etcd", "snapshot={}".format(filenames["v3"])
-    )
 
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
     action = await leader.run_action("restore")

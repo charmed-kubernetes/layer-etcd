@@ -38,14 +38,13 @@ class EtcdDatabag:
         self.db = unitdata.kv()
         self.build_uri = build_uri
         self.cluster_bind_address = self.get_bind_address("cluster")
+        self.port = config("port")
         self.listen_client_urls = [
-            build_uri("https", self.get_bind_address("db"), config("port"))
+            build_uri("https", self.get_bind_address("db"), self.port)
         ]
         if config("bind_with_insecure_http"):
             self.listen_client_urls.insert(0, build_uri("http", "127.0.0.1", 4001))
-        self.advertise_urls = [
-            build_uri("https", get_ingress_address("db"), config("port"))
-        ]
+        self.advertise_urls = [build_uri("https", get_ingress_address("db"), self.port)]
         self.management_port = config("management_port")
         # Live polled properties
         self.cluster_address = get_ingress_address("cluster")

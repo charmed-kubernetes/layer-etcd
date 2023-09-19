@@ -3,7 +3,7 @@
 from charms import layer
 from charmhelpers.core.templating import render
 from charmhelpers.core import hookenv
-from charmhelpers.core.hookenv import function_fail
+from charmhelpers.core.hookenv import action_fail
 from charmhelpers.core.hookenv import action_get
 from charmhelpers.core.hookenv import action_set
 from charmhelpers.core.hookenv import config
@@ -56,10 +56,10 @@ TARGET_PATH = action_get("target")
 def preflight_check():
     """Check preconditions for data restoration"""
     if not is_leader():
-        function_fail("This action can only be run on the leader unit")
+        action_fail("This action can only be run on the leader unit")
         sys.exit(0)
     if not SNAPSHOT_ARCHIVE:
-        function_fail({"result.failed": "Missing snapshot. See: README.md"})
+        action_fail("Missing snapshot. See: README.md")
         sys.exit(0)
 
 
@@ -112,7 +112,7 @@ def restore_v3_backup():
     # Use the insecure 4001 port we have open in our deployment
     environ = dict(os.environ, ETCDCTL_API="3")
     cmd = (
-        "/snap/bin/etcdctl --endpoints=http://localhost:4001 snapshot "
+        "/snap/bin/etcdctl --endpoints=https://127.0.0.1:2379 snapshot "
         "restore /root/tmp/restore-v3/db --skip-hash-check "
         "--data-dir='/root/tmp/restore-v3/etcd' "
         "--initial-cluster='{}' --initial-cluster-token='{}' "
