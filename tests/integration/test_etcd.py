@@ -168,14 +168,18 @@ async def test_snapshot_restore(ops_test: OpsTest, tmp_path: Path):
         log.info(action.results)
         assert action.status == "completed"
         await leader.scp_from(action.results["snapshot"]["path"], tmp_path)
-        filenames[dataset] = tmp_path / os.path.basename(action.results["snapshot"]["path"])
+        filenames[dataset] = tmp_path / os.path.basename(
+            action.results["snapshot"]["path"]
+        )
 
     await delete_data(ops_test)
     assert not await is_data_present(ops_test, "v2")
     assert not await is_data_present(ops_test, "v3")
 
-    with filenames["v2"].open(mode='rb') as file:
-        ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v2"], file)
+    with filenames["v2"].open(mode="rb") as file:
+        ops_test.model.applications["etcd"].attach_resource(
+            "snapshot", filenames["v2"], file
+        )
 
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
 
@@ -190,8 +194,10 @@ async def test_snapshot_restore(ops_test: OpsTest, tmp_path: Path):
     assert await is_data_present(ops_test, "v2")
     assert not await is_data_present(ops_test, "v3")
 
-    with filenames["v3"].open(mode='rb') as file:
-        ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v3"], file)
+    with filenames["v3"].open(mode="rb") as file:
+        ops_test.model.applications["etcd"].attach_resource(
+            "snapshot", filenames["v3"], file
+        )
 
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
 
