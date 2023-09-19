@@ -30,6 +30,12 @@ options:
     description: |
       The service binds to all network interfaces if true. The service binds
       only to the first found bind address of each relation if false
+  bind_with_insecure_http:
+    type: boolean
+    default: false
+    description: |
+      The service binds to localhost:4001 with http rather than https
+      which requires no tls certificates if true.
   tls_cipher_suites:
     type: string
     default: ""

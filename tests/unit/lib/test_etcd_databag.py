@@ -42,6 +42,7 @@ def test_render_etcd2(
 ):
     config.set("management_port", 1234)
     config.set("port", 5678)
+    config.set("bind_with_insecure_http", True)
     bag = etcd_databag.EtcdDatabag()
     template_env = Environment(loader=FileSystemLoader("templates"))
     config = template_env.get_template("etcd2.conf").render(bag.__dict__)
@@ -62,6 +63,7 @@ def test_render_etcd3(
 ):
     config.set("management_port", 1234)
     config.set("port", 5678)
+    config.set("bind_with_insecure_http", True)
     bag = etcd_databag.EtcdDatabag()
     template_env = Environment(loader=FileSystemLoader("templates"))
     config = template_env.get_template("etcd3.conf").render(bag.__dict__)

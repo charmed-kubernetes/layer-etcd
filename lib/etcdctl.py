@@ -149,19 +149,17 @@ class EtcdCtl:
             env["ETCDCTL_CACERT"] = ca_path
             env["ETCDCTL_CERT"] = crt_path
             env["ETCDCTL_KEY"] = key_path
-            if endpoints is None:
-                endpoints = "http://127.0.0.1:4001"
 
         elif api == 2:
             env["ETCDCTL_API"] = "2"
             env["ETCDCTL_CA_FILE"] = ca_path
             env["ETCDCTL_CERT_FILE"] = crt_path
             env["ETCDCTL_KEY_FILE"] = key_path
-            if endpoints is None:
-                endpoints = ":4001"
-
         else:
             raise NotImplementedError("etcd api version {} not supported".format(api))
+
+        if endpoints is None:
+            endpoints = "https://127.0.0.1:2379"
 
         if isinstance(arguments, str):
             command.extend(arguments.split())
