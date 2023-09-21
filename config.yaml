@@ -34,8 +34,8 @@ options:
     type: boolean
     default: false
     description: |
-      The service binds to localhost:4001 with http rather than https
-      which requires no tls certificates if true.
+      The service binds to localhost:4001 with http if true. This exposes an insecure
+      endpoint for the service and is not recommended in production environments.
   tls_cipher_suites:
     type: string
     default: ""
