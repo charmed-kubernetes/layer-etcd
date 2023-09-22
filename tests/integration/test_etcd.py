@@ -1,20 +1,28 @@
 from typing import List
-import pytest
 from pytest_operator.plugin import OpsTest
 from juju.unit import Unit
 import logging
 import os
+from pathlib import Path
+import pytest
 
 log = logging.getLogger(__name__)
 
-certs = [
+v2_env = [
+    "ETCDCTL_API=2",
     "ETCDCTL_KEY_FILE=/var/snap/etcd/common/client.key",
     "ETCDCTL_CERT_FILE=/var/snap/etcd/common/client.crt",
     "ETCDCTL_CA_FILE=/var/snap/etcd/common/ca.crt",
+]
+v3_env = [
+    "ETCDCTL_API=3",
     "ETCDCTL_KEY=/var/snap/etcd/common/client.key",
     "ETCDCTL_CERT=/var/snap/etcd/common/client.crt",
     "ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt",
 ]
+
+etcdctl_2 = f"{' '.join(v2_env)} /snap/bin/etcdctl --endpoint=https://127.0.0.1:2379"
+etcdctl_3 = f"{' '.join(v3_env)} /snap/bin/etcdctl --endpoints=https://127.0.0.1:2379"
 
 
 async def _unit_run(unit: Unit, jcmd: str, check: bool = True):
@@ -34,14 +42,10 @@ async def test_build_and_deploy(series: str, ops_test: OpsTest):
     await ops_test.model.add_relation("easyrsa:client", "etcd:certificates")
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
 
-    jcmd = "{} ETCDCTL_API=2 /snap/bin/etcd.etcdctl set juju rocks".format(
-        " ".join(certs)
-    )
+    jcmd = f"{etcdctl_2} set juju rocks"
     await _unit_run(ops_test.model.applications["etcd"].units[0], jcmd)
 
-    nscmd = "{} ETCDCTL_API=2 /snap/bin/etcd.etcdctl set nested/data works".format(
-        " ".join(certs)
-    )
+    nscmd = f"{etcdctl_2} set nested/data works"
     await _unit_run(ops_test.model.applications["etcd"].units[0], nscmd)
 
 
@@ -82,9 +86,7 @@ async def test_node_scale_up(ops_test: OpsTest):
 
 async def test_cluster_health(ops_test: OpsTest):
     for unit in ops_test.model.applications["etcd"].units:
-        cmd = "{} ETCDCTL_API=2 /snap/bin/etcdctl cluster-health".format(
-            " ".join(certs)
-        )
+        cmd = f"{etcdctl_2} cluster-health"
         action = await _unit_run(unit, cmd)
         assert "unhealthy" not in action.results["stdout"]
         assert "unavailable" not in action.results["stdout"]
@@ -92,7 +94,7 @@ async def test_cluster_health(ops_test: OpsTest):
 
 async def test_leader_knows_all_members(ops_test: OpsTest):
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
-    cmd = "{} ETCDCTL_API=2 /snap/bin/etcdctl member list".format(" ".join(certs))
+    cmd = f"{etcdctl_2} member list"
     action = await _unit_run(leader, cmd)
     members = action.results["stdout"].strip().split("\n")
     assert "etcd cluster is unavailable" not in members
@@ -130,13 +132,11 @@ async def test_snap_upgrade_to_three_oh(ops_test: OpsTest):
 
 
 async def validate_etcd_fixture_data(ops_test: OpsTest):
-    jcmd = "{} ETCDCTL_API=2 /snap/bin/etcd.etcdctl get juju".format(" ".join(certs))
+    jcmd = f"{etcdctl_2} get juju"
     action = await _unit_run(ops_test.model.applications["etcd"].units[0], jcmd)
     assert "rocks" in action.results["stdout"]
 
-    nscmd = "{} ETCDCTL_API=2 /snap/bin/etcd.etcdctl get nested/data".format(
-        " ".join(certs)
-    )
+    nscmd = f"{etcdctl_2} get nested/data"
     action = await _unit_run(ops_test.model.applications["etcd"].units[0], nscmd)
     assert "works" in action.results["stdout"]
 
@@ -147,7 +147,7 @@ async def validate_running_snap_daemon(ops_test: OpsTest):
     assert "active" in action.results["stdout"]
 
 
-async def test_snapshot_restore(ops_test: OpsTest):
+async def test_snapshot_restore(ops_test: OpsTest, tmp_path: Path):
     # Make sure there is only 1 unit of etcd running
     for unit in ops_test.model.applications["etcd"].units:
         if len(ops_test.model.applications["etcd"].units) > 1:
@@ -167,22 +167,21 @@ async def test_snapshot_restore(ops_test: OpsTest):
         log.info(action.status)
         log.info(action.results)
         assert action.status == "completed"
-        await leader.scp_from(action.results["snapshot"]["path"], ".")
-        filenames[dataset] = os.path.basename(action.results["snapshot"]["path"])
+        await leader.scp_from(action.results["snapshot"]["path"], tmp_path)
+        filenames[dataset] = tmp_path / os.path.basename(
+            action.results["snapshot"]["path"]
+        )
 
     await delete_data(ops_test)
     assert not await is_data_present(ops_test, "v2")
     assert not await is_data_present(ops_test, "v3")
 
-    # Below code is better but waiting for python-libjuju #654 fix, can't attach binary files yet due to the bug
-    # with open(filenames["v2"], mode='rb') as file:
-    #     ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v2"], file)
+    with filenames["v2"].open(mode="rb") as file:
+        ops_test.model.applications["etcd"].attach_resource(
+            "snapshot", filenames["v2"], file
+        )
 
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
-
-    await ops_test.juju(
-        "attach-resource", "etcd", "snapshot={}".format(filenames["v2"])
-    )
 
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
     action = await leader.run_action("restore")
@@ -195,15 +194,12 @@ async def test_snapshot_restore(ops_test: OpsTest):
     assert await is_data_present(ops_test, "v2")
     assert not await is_data_present(ops_test, "v3")
 
-    # Below code is better but waiting for python-libjuju #654 fix, can't attach binary files yet due to the bug
-    # with open(filenames["v3"], mode='rb') as file:
-    #     ops_test.model.applications["etcd"].attach_resource("snapshot", filenames["v3"], file)
+    with filenames["v3"].open(mode="rb") as file:
+        ops_test.model.applications["etcd"].attach_resource(
+            "snapshot", filenames["v3"], file
+        )
 
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
-
-    await ops_test.juju(
-        "attach-resource", "etcd", "snapshot={}".format(filenames["v3"])
-    )
 
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
     action = await leader.run_action("restore")
@@ -219,20 +215,16 @@ async def test_snapshot_restore(ops_test: OpsTest):
 
 async def load_data(ops_test: OpsTest):
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
-    cmd = "{} ETCDCTL_API=2 /snap/bin/etcdctl set /etcd2key etcd2value".format(
-        " ".join(certs)
-    )
+    cmd = f"{etcdctl_2} set /etcd2key etcd2value"
     await _unit_run(leader, cmd)
-    cmd = "{} ETCDCTL_API=3 /snap/bin/etcdctl --endpoints=http://localhost:4001 put etcd3key etcd3value".format(
-        " ".join(certs[3:])
-    )
+    cmd = f"{etcdctl_3} put etcd3key etcd3value"
     await _unit_run(leader, cmd)
 
 
 async def is_data_present(ops_test: OpsTest, version: str):
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
     if version == "v2":
-        cmd = "{} ETCDCTL_API=2 /snap/bin/etcdctl ls".format(" ".join(certs))
+        cmd = f"{etcdctl_2} ls"
         action = await _unit_run(leader, cmd)
         log.info(action.status)
         log.info(action.results)
@@ -242,9 +234,7 @@ async def is_data_present(ops_test: OpsTest, version: str):
             else False
         )
     elif version == "v3":
-        cmd = '{} ETCDCTL_API=3 /snap/bin/etcdctl --endpoints=http://localhost:4001 get "" --prefix --keys-only'.format(
-            " ".join(certs[3:])
-        )
+        cmd = f'{etcdctl_3} get "" --prefix --keys-only'
         action = await _unit_run(leader, cmd)
         log.info(action.status)
         log.info(action.results)
@@ -258,10 +248,8 @@ async def is_data_present(ops_test: OpsTest, version: str):
 
 async def delete_data(ops_test: OpsTest):
     leader = await _get_leader(ops_test.model.applications["etcd"].units)
-    cmd = "{} ETCDCTL_API=2 /snap/bin/etcdctl rm /etcd2key".format(" ".join(certs))
+    cmd = f"{etcdctl_2} rm /etcd2key"
     await _unit_run(leader, cmd)
 
-    cmd = "{} ETCDCTL_API=3 /snap/bin/etcdctl --endpoints=http://localhost:4001 del etcd3key".format(
-        " ".join(certs[3:])
-    )
+    cmd = f"{etcdctl_3} del etcd3key"
     await _unit_run(leader, cmd)
