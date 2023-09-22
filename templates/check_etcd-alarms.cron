@@ -1,2 +1,2 @@
 # check_etcd_alarms
-* * * * * root [ -x /snap/bin/etcdctl ] && ETCDCTL_API=3 /snap/bin/etcdctl --endpoints=127.0.0.1:4001 alarm list 2>&1| tee /var/lib/nagios/etcd-alarm-list.txt > /dev/null
+* * * * * root [ -x /snap/bin/etcdctl ] && ETCDCTL_API=3 ETCDCTL_KEY=/var/snap/etcd/common/client.key ETCDCTL_CERT=/var/snap/etcd/common/client.crt ETCDCTL_CACERT=/var/snap/etcd/common/ca.crt /snap/bin/etcdctl --endpoints=https://127.0.0.1:2379 alarm list 2>&1| tee /var/lib/nagios/etcd-alarm-list.txt > /dev/null

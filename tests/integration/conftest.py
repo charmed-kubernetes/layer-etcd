@@ -5,7 +5,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--series",
         type=str,
-        default="focal",
+        default="jammy",
         help="Set series for the machine units",
     )
 
