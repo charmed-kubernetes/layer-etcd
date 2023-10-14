@@ -59,3 +59,12 @@ restore:
       default: True
       description: |
         Dont backup any existing data, and skip directly to data restoration.
+recover:
+  description: Recover from a majority failure in Etcd cluster.
+  params:
+    timeout:
+      type: integer
+      default: 600
+      description: |
+        How long to wait for the Etcd cluster to restart and search logs
+        for configuration change.
