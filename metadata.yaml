@@ -1,11 +1,8 @@
 name: etcd
 summary: Deploy a TLS terminated ETCD Cluster
 maintainers:
-  - Tim Van Steenburgh <tim.van.steenburgh@canonical.com>
-  - George Kraft <george.kraft@canonical.com>
-  - Rye Terrell <rye.terrell@canonical.com>
   - Konstantinos Tsakalozos <kos.tsakalozos@canonical.com>
-  - Charles Butler <Chuck@dasroot.net>
+  - Louise Schmidtgen <louise.schmidtgen@canonical.com>
 description: |
   This charm supports deploying Etcd from the upstream binaries with resources.
   It will also TLS wrap your service, and distribute client keys to any service
