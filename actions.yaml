@@ -46,7 +46,7 @@ snapshot:
     keys-version:
       type: string
       default: 'v3'
-      description: Version of keys to snapshoot. Allowed values 'v3' or 'v2'.
+      description: Version of keys to snapshot. Allowed values 'v3' or 'v2'.
 restore:
   description: Restore an etcd cluster's data from a snapshot tarball.
   params:
@@ -58,4 +58,4 @@ restore:
       type: boolean
       default: True
       description: |
-        Dont backup any existing data, and skip directly to data restoration.
+        Don't backup any existing data, and skip directly to data restoration.
