@@ -39,8 +39,38 @@ LIBAPI = 0
 # to 0 if you are raising the major API version
 LIBPATCH = 1
 
+class EtcdAvailable(EventBase):
+    """Event emitted when the etcd relation data is available."""
+
+    pass
+
+
+class EtcdConnected(EventBase):
+    """Event emitted when the etcd relation is connected."""
+
+    pass
+
+class EtcdTLSAvailable(EventBase):
+    """Event emitted when the etcd relation TLS data is available."""
+
+    pass
+
+class EtcdDisconnected(EventBase):
+    """Event emitted when the etcd relation is disconnected."""
+
+    pass
+
+class EtcdConsumerEvents(ObjectEvents):
+    """Events emitted by the etcd translation interface."""
+
+    available = EventSource(EtcdAvailable)
+    connected = EventSource(EtcdConnected)
+    disconnected = EventSource(EtcdDisconnected)
+    tls_available = EventSource(EtcdTLSAvailable)
+
 class EtcdProxyRequires(Object):
     state = StoredState()
+    on = EtcdConsumerEvents()
     def __init__(self, charm, relation_name, endpoint='etcd-proxy'):
         super().__init__(charm, relation_name)
         self.state.set_default(connected =False, available=False, tls_available=False)
@@ -54,19 +84,23 @@ class EtcdProxyRequires(Object):
 
     def _joined_or_changed(self):
         self.state.connected = True
+        self.on.connected.emit()
 
         if self.get_cluster_string():
             self.state.available = True
+            self.on.available.emit()
             # Get the ca, key, cert from the relation data.
             cert = self.get_client_credentials()
             # The tls state depends on the existence of the ca, key and cert.
             if cert['client_cert'] and cert['client_key'] and cert['client_ca']:  # noqa
                 self.state.tls_available = True
+                self.on.tls_available.emit()
 
     def _broken_or_departed(self):
         self.state.connected = False
         self.state.available = False
         self.state.tls_available = False
+        self.on.disconnected.emit()
 
     def get_cluster_string(self):
         ''' Return the connection string, if available, or None. '''

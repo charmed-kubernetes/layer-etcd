@@ -112,7 +112,7 @@ class EtcdConsumerEvents(ObjectEvents):
     disconnected = EventSource(EtcdDisconnected)
     tls_available = EventSource(EtcdTLSAvailable)
 
-# TODO: Should this be a seperate event class or not?
+# TODO: Should this be a separate event class or not?
 class EtcdPeerEvents(ObjectEvents):
     """Events emitted by the etcd translation interface."""
 
@@ -216,8 +216,7 @@ class EtcdPeers(Object):
         addresses = []
         relation = self.charm.model.get_relation(self.relation_name)
         for peer in self.get_peers():
-            relation.data[peer]['db-ingress-address'] 
-            address = peer.get_remote('db-ingress-address')
+            address =  relation.data[peer]['db-ingress-address'] # TODO: does this error if key not found?
             if address:
                 addresses.append(address)
         return addresses
