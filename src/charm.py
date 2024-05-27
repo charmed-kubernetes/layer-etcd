@@ -7,12 +7,12 @@ import logging
 import ops 
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus, MaintenanceStatus
 from ops.framework import StoredState
-
+from charms.operator_libs_linux.v2 import snap
 
 log = logging.getLogger(__name__)
 
 VALID_LOG_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-
+ETCD_SNAP_NAME = 'etcd'
 class EtcdCharm(ops.CharmBase):
     """Charm the service."""
 
@@ -20,6 +20,7 @@ class EtcdCharm(ops.CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self.snap = snap.SnapClient()
         # Observe charm events
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.start, self._on_start)
@@ -69,8 +70,6 @@ class EtcdCharm(ops.CharmBase):
         self.framework.observe(self.on.config_changed, self._on_config_changed)
 
     def _on_pre_series_upgrade(self, event):
-        pass
-
     def _on_leader_settings_changed(self, event):
         """The leader executes the runtime configuration update for the cluster,
         as it is the controlling unit. Will render config, close and open ports and
@@ -79,10 +78,42 @@ class EtcdCharm(ops.CharmBase):
         self.model.unit.status = ops.model.ActiveStatus('Leader settings changed')
 
 
+    def _get_target_etcd_channel():
+        """
+        Check whether or not etcd is already installed. i.e. we're
+        going through an upgrade.  If so, leave the etcd version alone,
+        if we're a new install, we can set the default channel here.
 
+        If the user has specified a version, then just return that.
+
+        :return: String snap channel
+        """
+        channel = self.model.config['channel']
+        if channel == "auto":
+            if snap.is_installed("etcd"):
+                return False
+            else:
+                return "3.4/stable"
+        else:
+            return channel
+
+    def is_etcd_installed(self):
+        """Check if a snap is installed"""
+        for snp in self.snap.get_installed_snaps():
+            if snp["name"] == ETCD_SNAP_NAME:
+                return True
+        return False
+    
     def _on_install(self, event):
-        log.info('Installing Etcd')
-        self.model.unit.status = ops.model.BlockedStatus('Waiting for Etcd to start')
+        if not self.is_etcd_installed():
+            log.info('Installing Etcd')
+            self.model.unit.status = ops.model.BlockedStatus('Waiting for Etcd to start')
+        try:
+            etcd = snap.add('etcd')
+        except snap.SnapError as e:
+            log.error(f"Could not install etcd: {e}")
+            self.model.unit.status = ops.model.BlockedStatus('Etcd installation failed')
+            return
 
 
     def _on_start(self, event):
