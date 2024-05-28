@@ -19,3 +19,10 @@ observation.
 
 This charm is maintained along with the components of Charmed Kubernetes. For full information,
 please visit the [official Charmed Kubernetes docs](https://www.ubuntu.com/kubernetes/docs/charm-etcd).
+
+## Build Charm
+```bash
+charmcraft pack
+```
+
+This command will create a charm which you can deploy using juju.

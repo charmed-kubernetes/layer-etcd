@@ -11,8 +11,6 @@ description: |
   connecting. Etcd is a highly available key/value store.
 docs: |
   https://discourse.charmhub.io/t/charm-etcd-docs-index/5592
-assumes:
-  - juju >= 3.1
 provides:
   db:
     interface: etcd
@@ -61,3 +59,12 @@ subordinate: false
 tags:
   - database
   - keystore
+
+language: python
+framework: ops
+# analysis:
+#   attributes:
+#   - name: language
+#     result: python
+#   - name: framework
+#     result: ops

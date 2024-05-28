@@ -9,4 +9,16 @@ bases:
       channel: "22.04"
       architectures: [amd64, arm64]
 
+parts:
+  charm:
+    build-packages:
+    - git
 
+    # The following are needed for tls-certificates-interface
+    - build-essential
+    - python3-dev
+    - libffi-dev
+    - libssl-dev
+    - pkg-config
+    - rustc
+    - cargo
