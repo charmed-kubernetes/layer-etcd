@@ -7,3 +7,5 @@ __pycache__
 .unit-state.db
 *.swp
 .cache/*
+venv/*
+*charm

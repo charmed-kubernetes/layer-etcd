@@ -25,7 +25,7 @@ class EtcdCharm(ops.CharmBase):
         super().__init__(*args)
         self.snap = None
         self.certificates = CertificatesRequires(self, 'certificates')
-        self.etcd = EtcdProvides(self, 'etcd')
+        # self.etcd = EtcdProvides(self, 'etcd')
 
         # Observe charm events
         self.framework.observe(self.on.install, self._on_install)
@@ -130,21 +130,23 @@ class EtcdCharm(ops.CharmBase):
 
     def _on_start(self, event):
         log.info('Starting Etcd')
-        self.snap.start()
-        self.model.unit.status = ops.model.ActiveStatus('Etcd is running')
+        if self.is_etcd_installed():
+            self.snap.start()
+            self.model.unit.status = ops.model.ActiveStatus('Etcd is running')
 
     def _on_stop(self, event):
         log.info('Stopping Etcd')
-        self.snap.stop()
-        self.model.unit.status = ops.model.BlockedStatus('Etcd is stopped')
+        if self.is_etcd_installed():
+            self.snap.stop()
+            self.model.unit.status = ops.model.BlockedStatus('Etcd is stopped')
     
     def _on_config_changed(self, event):
         log.info('Configuring Etcd')
         self.model.unit.status = ops.model.WaitingStatus('Etcd is being configured')
 
         # switch all config options charm doesn't know which config changed
-        if self.config:
-            pass
+        # if self.config:
+        #     pass
 
 if __name__ == "__main__":
     ops.main(EtcdCharm)
