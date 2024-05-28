@@ -19,11 +19,13 @@ ETCD_SNAP_NAME = 'etcd'
 class EtcdCharm(ops.CharmBase):
     """Charm the service."""
 
-    _stored = StoredState()
+    state = StoredState()
 
     def __init__(self, *args):
+
         super().__init__(*args)
         self.snap = None
+        self.state.set_default(snap_started=False)
         self.certificates = CertificatesRequires(self, 'certificates')
         # self.etcd = EtcdProvides(self, 'etcd')
 
@@ -112,11 +114,12 @@ class EtcdCharm(ops.CharmBase):
         return False
     
     def _on_install(self, event):
-        """Install the etcd snap if it is not already installed."""
-        if not self.is_etcd_installed():
+        """Install the etcd snap if it is not already installed or if the channel has changed."""
+        if not self.is_etcd_installed() or self._has_channel_changed():
             log.info('Installing Etcd')
             self.model.unit.status = ops.model.BlockedStatus('Waiting for Etcd to start')
         try:
+            #TODO: check if this also does a refresh if we only change the channel
             self.snap = add(snap_names ='etcd', \
                 channel=self._get_target_etcd_channel(), \
                 classic=True, \
@@ -128,21 +131,37 @@ class EtcdCharm(ops.CharmBase):
             return
 
 
-    def _on_start(self, event):
+    def _on_start(self, _):
         log.info('Starting Etcd')
         if self.is_etcd_installed():
             self.snap.start()
+            self.state.snap_started = True
             self.model.unit.status = ops.model.ActiveStatus('Etcd is running')
 
-    def _on_stop(self, event):
+    def _on_stop(self, _):
         log.info('Stopping Etcd')
         if self.is_etcd_installed():
-            self.snap.stop()
+            self.snap.stop()#
+            self.state.snap_started = False
             self.model.unit.status = ops.model.BlockedStatus('Etcd is stopped')
+    
+    def _has_channel_changed(self):
+        """Check if the snap channel has changed"""
+        if self.config['channel'] != self.snap.channel:
+            return True
+        return False
+
     
     def _on_config_changed(self, event):
         log.info('Configuring Etcd')
         self.model.unit.status = ops.model.WaitingStatus('Etcd is being configured')
+        if self.state.snap_started:
+            self._on_start(event)
+        else:
+            self._on_stop(event)
+
+        # install if channel has changed
+        self._on_install(event)
 
         # switch all config options charm doesn't know which config changed
         # if self.config:
