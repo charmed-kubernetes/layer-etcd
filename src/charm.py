@@ -147,4 +147,4 @@ class EtcdCharm(ops.CharmBase):
             pass
 
 if __name__ == "__main__":
-    main(EtcdCharm)
+    ops.main(EtcdCharm)
