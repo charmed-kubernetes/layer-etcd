@@ -10,6 +10,7 @@ from ops.framework import StoredState
 
 from charms.operator_libs_linux.v2.snap import Snap, add, remove, SnapError
 from charms.etcd.v0.etcd import EtcdProvides
+from charms.etcd_proxy.v0.etcd import EtcdProxyProvides
 from ops.interface_tls_certificates import CertificatesRequires
 
 log = logging.getLogger(__name__)
@@ -20,14 +21,33 @@ class EtcdCharm(ops.CharmBase):
     """Charm the service."""
 
     state = StoredState()
+    etcd_conf_dir = "/var/snap/etcd/common" #Path to render etcd configuration
+    etcd_data_dir = "/var/snap/etcd/current" #Path to presume for etcd data_persistence
+    etcd_daemon_process = "snap.etcd.etcd" #Process to target for etcd daemon restarts
+
+    # TLS client and server cert paths
+    ca_certificate_path= "/var/snap/etcd/common/ca.crt"
+    server_certificate_path= "/var/snap/etcd/common/server.crt"
+    server_key_path= "/var/snap/etcd/common/server.key"
+    client_certificate_path= "/var/snap/etcd/common/client.crt"
+    client_key_path= "/var/snap/etcd/common/client.key"
+   
+    # cdk-service-kicker TODO: where do I need this?
+    services = ["snap.etcd.etcd"]
+
+    # etcd ports TODO
+
 
     def __init__(self, *args):
 
         super().__init__(*args)
         self.snap = None
         self.state.set_default(snap_started=False)
+
+        # etcd charm integrations
         self.certificates = CertificatesRequires(self, 'certificates')
         # self.etcd = EtcdProvides(self, 'etcd')
+        # self.etcd_proxy = EtcdProxyProvides(self, 'etcd-proxy')
 
         # Observe charm events
         self.framework.observe(self.on.install, self._on_install)
@@ -115,33 +135,43 @@ class EtcdCharm(ops.CharmBase):
     
     def _on_install(self, event):
         """Install the etcd snap if it is not already installed or if the channel has changed."""
-        if not self.is_etcd_installed() or self._has_channel_changed():
+        if not self.is_etcd_installed():
             log.info('Installing Etcd')
             self.model.unit.status = ops.model.BlockedStatus('Waiting for Etcd to start')
         try:
             #TODO: check if this also does a refresh if we only change the channel
             self.snap = add(snap_names ='etcd', \
                 channel=self._get_target_etcd_channel(), \
-                classic=True, \
                     )
+            self.snap.start() #TODO:do i need this?
+            self.state.snap_started = True
             log.info('Installed Etcd Snap: %s', str(self.snap))
         except SnapError as e:
             log.error(f"Could not install etcd: {e}")
             self.model.unit.status = ops.model.BlockedStatus('Etcd installation failed')
             return
+    
+    def reconfigure_snap(self, _):
+        """Reconfigure the snap with the new configuration options"""
+        if self.is_etcd_installed() and self._has_channel_changed():
+            self.snap.ensure(channel=self._get_target_etcd_channel(), snap_names='etcd', classic=True) #TODO: check if I also need to pass snapstate
+            self.snap.restart()
+            self.state.snap_started = True
+            self.model.unit.status = ops.model.ActiveStatus('Etcd is running')
+            return
+        
 
 
     def _on_start(self, _):
         log.info('Starting Etcd')
-        if self.is_etcd_installed():
-            self.snap.start()
-            self.state.snap_started = True
-            self.model.unit.status = ops.model.ActiveStatus('Etcd is running')
+        return
+        
+        self.model.unit.status = ops.model.ActiveStatus('Etcd is running')
 
     def _on_stop(self, _):
         log.info('Stopping Etcd')
         if self.is_etcd_installed():
-            self.snap.stop()#
+            self.snap.stop()
             self.state.snap_started = False
             self.model.unit.status = ops.model.BlockedStatus('Etcd is stopped')
     
@@ -155,17 +185,13 @@ class EtcdCharm(ops.CharmBase):
     def _on_config_changed(self, event):
         log.info('Configuring Etcd')
         self.model.unit.status = ops.model.WaitingStatus('Etcd is being configured')
-        if self.state.snap_started:
-            self._on_start(event)
-        else:
-            self._on_stop(event)
+        
+        #channel changed, reconfigure snap
+        self.reconfigure_snap(event)
 
-        # install if channel has changed
-        self._on_install(event)
+        #port changed
+       
 
-        # switch all config options charm doesn't know which config changed
-        # if self.config:
-        #     pass
 
 if __name__ == "__main__":
     ops.main(EtcdCharm)
