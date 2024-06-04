@@ -1,2 +1,2 @@
-ops >= 2.2.0
+ops == 2.12.0
 ops.interface_tls_certificates @ git+https://github.com/charmed-kubernetes/interface-tls-certificates@main#subdirectory=ops

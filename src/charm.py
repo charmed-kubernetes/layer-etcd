@@ -12,11 +12,25 @@ from charms.operator_libs_linux.v2.snap import Snap, add, remove, SnapError
 from charms.etcd.v0.etcd import EtcdProvides
 from charms.etcd_proxy.v0.etcd import EtcdProxyProvides
 from ops.interface_tls_certificates import CertificatesRequires
+from etcd_databag import EtcdDatabag
+from etcd_ctl import (
+    EtcdCtl,
+    get_connection_string,
+)
+from etcd_lib import (
+    build_uri,
+    get_ingress_address,
+    get_ingress_addresses,
+    render_grafana_dashboard,
+)
+import json
 
 log = logging.getLogger(__name__)
 
 VALID_LOG_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 ETCD_SNAP_NAME = 'etcd'
+
+
 class EtcdCharm(ops.CharmBase):
     """Charm the service."""
 
@@ -36,6 +50,8 @@ class EtcdCharm(ops.CharmBase):
     services = ["snap.etcd.etcd"]
 
     # etcd ports TODO
+    port = 2379
+    mgmt_port = 2380
 
 
     def __init__(self, *args):
@@ -53,15 +69,15 @@ class EtcdCharm(ops.CharmBase):
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.start, self._on_start)
         self.framework.observe(self.on.stop, self._on_stop)
-        # self.framework.observe(self.on.update_status, self._on_update_status)
+        self.framework.observe(self.on.update_status, self._on_update_status)
         # self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
 
         # # Observe certificate events
         # self.framework.observe(self.on.certificates_relation_joined, self._on_certificates_relation_joined)
         # self.framework.observe(self.on.certificates_relation_created, self._on_certificates_relation_created)
         # self.framework.observe(self.on.certificates_relation_changed, self._on_certificates_relation_changed)
-        # self.framework.observe(self.on.certificates_relation_broken, self._on_certificates_relation_broken)
-        # self.framework.observe(self.on.certificates_relation_departed, self._on_certificates_relation_departed)
+        self.framework.observe(self.on.certificates_relation_broken, self._on_certificates_relation_broken_or_departed)
+        self.framework.observe(self.on.certificates_relation_departed, self._on_certificates_relation_broken_or_departed)
 
         # # Observe cluster events
         # self.framework.observe(self.on.cluster_relation_joined, self._on_cluster_relation_joined)
@@ -81,7 +97,7 @@ class EtcdCharm(ops.CharmBase):
 
         # # leader settings
         # self.framework.observe(self.on.leader_elected, self._on_leader_elected)
-        # self.framework.observe(self.on.leader_settings_changed, self._on_leader_settings_changed)
+        self.framework.observe(self.on.leader_settings_changed, self._on_leader_settings_changed)
 
         # # post & pre -series upgrade
         # self.framework.observe(self.on.post_series_upgrade, self._on_post_series_upgrade)
@@ -99,12 +115,47 @@ class EtcdCharm(ops.CharmBase):
 
     def _on_pre_series_upgrade(self, event):
         pass 
+
+    def _on_certificates_relation_broken_or_departed(self, event):
+        self.model.unit.status = ops.model.BlockedStatus('Missing relation to certificate authority.')
+
+    def _on_update_status(self, event):
+        self.model.unit.status = ops.model.ActiveStatus('Etcd is running')
+
     def _on_leader_settings_changed(self, event):
         """The leader executes the runtime configuration update for the cluster,
         as it is the controlling unit. Will render config, close and open ports and
         restart the etcd service."""        
         log.info('Leader settings changed')
         self.model.unit.status = ops.model.ActiveStatus('Leader settings changed')
+
+        configuration = hookenv.config()
+        previous_port = configuration.previous("port")
+        log("Previous port: {0}".format(previous_port))
+        previous_mgmt_port = configuration.previous("management_port")
+        log("Previous management port: {0}".format(previous_mgmt_port))
+
+        if previous_port and previous_mgmt_port:
+            bag = EtcdDatabag()
+            etcdctl = EtcdCtl()
+            members = etcdctl.member_list()
+            # Iterate over all the members in the list.
+            for unit_name in members:
+                # Grab the previous peer url and replace the management port.
+                peer_urls = members[unit_name]["peer_urls"]
+                log("Previous peer url: {0}".format(peer_urls))
+                old_port = ":{0}".format(previous_mgmt_port)
+                new_port = ":{0}".format(configuration.get("management_port"))
+                url = peer_urls.replace(old_port, new_port)
+                # Update the member's peer_urls with the new ports.
+                log(etcdctl.member_update(members[unit_name]["unit_id"], url))
+            # Render just the leaders configuration with the new values.
+            render_config()
+            address = get_ingress_address("cluster")
+            leader_set(
+                {"leader_address": get_connection_string([address], bag.management_port)}
+            )
+            host.service_restart(bag.etcd_daemon)
 
 
     def _get_target_etcd_channel(self):
@@ -177,10 +228,15 @@ class EtcdCharm(ops.CharmBase):
     
     def _has_channel_changed(self):
         """Check if the snap channel has changed"""
-        if self.config['channel'] != self.snap.channel:
-            return True
-        return False
+        return self.config['channel'] != self.snap.channel
 
+    def _has_etcd_port_changed(self):
+        """Check if the etcd port has changed"""
+        return self.config['port'] != self.port
+    
+    def _has_etcd_mgmt_port_changed(self):
+        """Check if the etcd management port has changed"""
+        return self.config['management_port'] != self.mgmt_port
     
     def _on_config_changed(self, event):
         log.info('Configuring Etcd')
@@ -190,6 +246,28 @@ class EtcdCharm(ops.CharmBase):
         self.reconfigure_snap(event)
 
         #port changed
+        self._has_etcd_port_changed()
+
+        #management port changed
+        self._has_etcd_mgmt_port_changed()
+
+    
+
+    @property
+    def peers(self):
+        """Fetch the peer relation."""
+        return self.model.get_relation(PEER_NAME)
+
+    def set_peer_data(self, key: str, data: Any) -> None:
+        """Put information into the peer data bucket instead of `StoredState`."""
+        self.peers.data[self.app][key] = json.dumps(data)
+
+    def get_peer_data(self, key: str) -> dict[Any, Any]:
+        """Retrieve information from the peer data bucket instead of `StoredState`."""
+        if not self.peers:
+            return {}
+        data = self.peers.data[self.app].get(key, "")
+        return json.loads(data) if data else {}
        
 
 

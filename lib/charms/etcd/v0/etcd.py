@@ -121,14 +121,14 @@ class EtcdPeerEvents(ObjectEvents):
 
 class EtcdProvides(Object):
     on = EtcdConsumerEvents()
-    def __init__(self, charm, relation_name):
-        super().__init__(charm, relation_name)
+    def __init__(self, charm, endpoint="etcd"):
+        super().__init__(charm, endpoint)
         self.charm = charm
-        self.relation_name = relation_name
-        self.framework.observe(charm.on[relation_name].relation_joined, self.joined_or_changed)
-        self.framework.observe(charm.on[relation_name].relation_changed, self.joined_or_changed)
-        self.framework.observe(charm.on[relation_name].relation_broken, self.broken_or_departed)
-        self.framework.observe(charm.on[relation_name].relation_departed, self.broken_or_departed)
+        self.endpoint = endpoint
+        self.framework.observe(charm.on.relation_joined, self.joined_or_changed)
+        self.framework.observe(charm.on[endpoint].relation_changed, self.joined_or_changed)
+        self.framework.observe(charm.on[endpoint].relation_broken, self.broken_or_departed)
+        self.framework.observe(charm.on[endpoint].relation_departed, self.broken_or_departed)
 
 
     def joined_or_changed(self, _):
@@ -163,15 +163,15 @@ class EtcdPeers(Object):
     """Peers side of the etcd interface. """
     state = StoredState()
     on = EtcdPeerEvents()
-    def __init__(self, charm, relation_name):
-        super().__init__(charm, relation_name)
+    def __init__(self, charm, endpoint):
+        super().__init__(charm, endpoint)
         self.charm = charm
         self.state.set_default(
             joined=False, departing=False
         )
-        self.relation_name = relation_name
-        self.framework.observe(charm.on[relation_name].relation_joined, self._peer_joined)
-        self.framework.observe(charm.on[relation_name].relation_departed, self._peers_going_away)
+        self.endpoint = endpoint
+        self.framework.observe(charm.on[endpoint].relation_joined, self._peer_joined)
+        self.framework.observe(charm.on[endpoint].relation_departed, self._peers_going_away)
 
     def _peer_joined(self):
         """A new peer has joined, emit the peer connected event. """
