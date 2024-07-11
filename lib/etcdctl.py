@@ -1,10 +1,9 @@
-from charms import layer
-from charmhelpers.core.hookenv import log
-from subprocess import CalledProcessError
-from subprocess import check_output
-from subprocess import STDOUT
-from typing import Optional
 import os
+from subprocess import STDOUT, CalledProcessError, check_output
+from typing import Optional
+
+from charmhelpers.core.hookenv import log
+from charms import layer
 from etcd_lib import build_uri
 
 

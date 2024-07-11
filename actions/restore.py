@@ -1,36 +1,33 @@
 #!/usr/local/sbin/charm-env python3
 
-from charms import layer
-from charmhelpers.core.templating import render
-from charmhelpers.core import hookenv
-from charmhelpers.core.hookenv import action_fail
-from charmhelpers.core.hookenv import action_get
-from charmhelpers.core.hookenv import action_set
-from charmhelpers.core.hookenv import config
-from charmhelpers.core.hookenv import log
-from charmhelpers.core.hookenv import resource_get
-from charmhelpers.core.hookenv import is_leader
-from charmhelpers.core.hookenv import _run_atstart
-from charmhelpers.core.hookenv import _run_atexit
-from charmhelpers.core.host import chdir
-from charmhelpers.core.host import service_start
-from charmhelpers.core.host import service_stop
-from etcd_lib import get_ingress_address, build_uri
-from etcdctl import EtcdCtl
-from etcd_databag import EtcdDatabag
-from shlex import split
-from subprocess import check_call
-from subprocess import check_output
-from subprocess import CalledProcessError
-from subprocess import Popen
-from subprocess import PIPE
-from datetime import datetime
-from uuid import uuid4
 import hashlib
 import os
 import sys
 import time
+from datetime import datetime
+from shlex import split
+from subprocess import PIPE, CalledProcessError, Popen, check_call, check_output
+from uuid import uuid4
+
 import yaml
+from charmhelpers.core import hookenv
+from charmhelpers.core.hookenv import (
+    _run_atexit,
+    _run_atstart,
+    action_fail,
+    action_get,
+    action_set,
+    config,
+    is_leader,
+    log,
+    resource_get,
+)
+from charmhelpers.core.host import chdir, service_start, service_stop
+from charmhelpers.core.templating import render
+from charms import layer
+from etcd_databag import EtcdDatabag
+from etcd_lib import build_uri, get_ingress_address
+from etcdctl import EtcdCtl
 
 # Import charm layers and start reactive
 layer.import_layer_libs()

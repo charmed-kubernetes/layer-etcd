@@ -4,10 +4,8 @@ import re
 import subprocess
 import sys
 
+from charmhelpers.core.hookenv import action_fail, action_get, action_name, action_set
 from etcdctl import EtcdCtl
-
-from charmhelpers.core.hookenv import action_get, action_set, action_fail, action_name
-
 
 CTL = EtcdCtl()
 

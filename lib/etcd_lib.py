@@ -1,12 +1,8 @@
+import json
 from ipaddress import ip_address
 
 from charmhelpers.contrib.templating.jinja import render
-from charmhelpers.core.hookenv import (
-    network_get,
-    unit_private_ip,
-)
-
-import json
+from charmhelpers.core.hookenv import network_get, unit_private_ip
 
 GRAFANA_DASHBOARD_FILE = "grafana_dashboard.json.j2"
 

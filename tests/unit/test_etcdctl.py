@@ -1,27 +1,20 @@
-import pytest
-from unittest.mock import patch, MagicMock
-
-import reactive.etcd
+from unittest.mock import MagicMock, patch
 
 import etcd_lib
-
-from etcdctl import (
-    EtcdCtl,
-    etcdctl_command,
-    get_connection_string,
-)  # noqa
-
+import pytest
 from etcd_databag import EtcdDatabag
+from etcdctl import EtcdCtl, etcdctl_command, get_connection_string  # noqa
 
+import reactive.etcd
 from reactive.etcd import (
+    GRAFANA_DASHBOARD_NAME,
     clear_flag,
     endpoint_from_flag,
-    force_rejoin_requested,
     force_rejoin,
-    GRAFANA_DASHBOARD_NAME,
+    force_rejoin_requested,
     host,
-    pre_series_upgrade,
     post_series_upgrade,
+    pre_series_upgrade,
     register_grafana_dashboard,
     register_prometheus_jobs,
     status,

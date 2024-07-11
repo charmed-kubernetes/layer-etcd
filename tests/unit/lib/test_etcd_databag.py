@@ -1,10 +1,11 @@
-from jinja2 import FileSystemLoader, Environment
 from unittest import mock
-import pytest
 
-from charms.unit_test import MockKV
-import reactive.etcd
 import etcd_databag
+import pytest
+from charms.unit_test import MockKV
+from jinja2 import Environment, FileSystemLoader
+
+import reactive.etcd
 
 
 @pytest.fixture

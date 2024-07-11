@@ -1,10 +1,9 @@
 from typing import Any
 from unittest import mock
 
-from charmhelpers.contrib.templating import jinja
 import charmhelpers.core.hookenv as hookenv
 import pytest
-
+from charmhelpers.contrib.templating import jinja
 from etcd_lib import build_uri, get_bind_address, render_grafana_dashboard
 
 

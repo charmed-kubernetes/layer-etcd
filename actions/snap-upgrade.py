@@ -1,31 +1,21 @@
 #!/usr/local/sbin/charm-env python3
 
-from charms.layer import snap
-from charmhelpers.core import unitdata
-from charmhelpers.core.hookenv import action_get
-from charmhelpers.core.hookenv import action_set
-from charmhelpers.core.hookenv import action_fail
-from charmhelpers.core.hookenv import config
-from charmhelpers.core.hookenv import log
-from charms.reactive import is_state
-from charms.reactive import remove_state
-from charms.reactive import set_state
-
-# from charmhelpers.core.host import chdir
-
-from datetime import datetime
-from subprocess import call
-from subprocess import check_call
-from subprocess import CalledProcessError
-
-from shlex import split
-
 import os
 import shutil
 import sys
 import tempfile
+from datetime import datetime
+from shlex import split
+from subprocess import CalledProcessError, call, check_call
+
+from charmhelpers.core import unitdata
+from charmhelpers.core.hookenv import action_fail, action_get, action_set, config, log
+from charms.layer import snap
+from charms.reactive import is_state, remove_state, set_state
 
 from reactive.etcd import get_target_etcd_channel
+
+# from charmhelpers.core.host import chdir
 
 
 # Define some dict's containing paths of files we expect to see in

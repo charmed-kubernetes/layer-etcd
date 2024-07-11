@@ -1,10 +1,11 @@
-from typing import List
-from pytest_operator.plugin import OpsTest
-from juju.unit import Unit
 import logging
 import os
 from pathlib import Path
+from typing import List
+
 import pytest
+from juju.unit import Unit
+from pytest_operator.plugin import OpsTest
 
 log = logging.getLogger(__name__)
 

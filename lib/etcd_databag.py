@@ -1,15 +1,12 @@
-from charms import layer
-from charmhelpers.core.hookenv import config
-from charmhelpers.core.hookenv import is_leader
-from charmhelpers.core.hookenv import leader_get, leader_set
-from charmhelpers.core import unitdata
-from charms.reactive import is_state
-from etcd_lib import get_ingress_address
-from etcd_lib import get_bind_address, build_uri
-
-import string
-import random
 import os
+import random
+import string
+
+from charmhelpers.core import unitdata
+from charmhelpers.core.hookenv import config, is_leader, leader_get, leader_set
+from charms import layer
+from charms.reactive import is_state
+from etcd_lib import build_uri, get_bind_address, get_ingress_address
 
 
 class EtcdDatabag:

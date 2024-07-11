@@ -1,45 +1,50 @@
 #!/usr/bin/python3
 
-from charms import layer
+import json
+import os
+import random
+import shutil
+import socket
+import time
+import traceback
+from shlex import split
+from shutil import copyfile
+from subprocess import CalledProcessError, check_call, check_output
 
-from charms.layer import snap
-
-from charms.reactive import endpoint_from_flag
-from charms.reactive import when
-from charms.reactive import when_any
-from charms.reactive import when_not
-from charms.reactive import is_state
-from charms.reactive import set_state
-from charms.reactive import is_flag_set
-from charms.reactive import remove_state
-from charms.reactive import set_flag
-from charms.reactive import clear_flag
-from charms.reactive import hook
-from charms.reactive import register_trigger
-from charms.reactive.helpers import data_changed
-
-from charmhelpers.core.templating import render
-
-from charmhelpers.core.hookenv import config
-from charmhelpers.core.hookenv import log
-from charmhelpers.core.hookenv import DEBUG
-
-from charmhelpers.core.hookenv import leader_set
-from charmhelpers.core.hookenv import leader_get
-from charmhelpers.core.hookenv import storage_get
-
-from charmhelpers.core.hookenv import application_version_set
-from charmhelpers.core.hookenv import open_port
-from charmhelpers.core.hookenv import close_port
-from charmhelpers.core.host import write_file
-from charmhelpers.core import hookenv
-from charmhelpers.core import host
+import charms.leadership  # noqa
+import yaml
 from charmhelpers.contrib.charmsupport import nrpe
-
-from charms.layer import status
-
-from etcdctl import EtcdCtl
-from etcdctl import get_connection_string
+from charmhelpers.core import hookenv, host
+from charmhelpers.core.hookenv import (
+    DEBUG,
+    application_version_set,
+    close_port,
+    config,
+    leader_get,
+    leader_set,
+    log,
+    open_port,
+    storage_get,
+)
+from charmhelpers.core.host import write_file
+from charmhelpers.core.templating import render
+from charms import layer
+from charms.layer import snap, status
+from charms.reactive import (
+    clear_flag,
+    endpoint_from_flag,
+    hook,
+    is_flag_set,
+    is_state,
+    register_trigger,
+    remove_state,
+    set_flag,
+    set_state,
+    when,
+    when_any,
+    when_not,
+)
+from charms.reactive.helpers import data_changed
 from etcd_databag import EtcdDatabag
 from etcd_lib import (
     build_uri,
@@ -47,23 +52,7 @@ from etcd_lib import (
     get_ingress_addresses,
     render_grafana_dashboard,
 )
-
-from shlex import split
-from subprocess import check_call
-from subprocess import check_output
-from subprocess import CalledProcessError
-from shutil import copyfile
-
-import json
-import os
-import charms.leadership  # noqa
-import socket
-import time
-import traceback
-import yaml
-import shutil
-import random
-
+from etcdctl import EtcdCtl, get_connection_string
 
 # Layer Note:   the @when_not etcd.installed state checks are relating to
 # a boundry that was superimposed by the etcd-24 release which added support
