@@ -43,6 +43,7 @@ resources:
       [DEPRECATED] in favor of using a Snap Store Proxy.
       See https://ubuntu.com/kubernetes/docs/proxies for more details.
 series:
+  - noble
   - jammy
   - focal
 storage:
