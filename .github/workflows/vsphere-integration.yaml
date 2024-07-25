@@ -31,6 +31,7 @@ jobs:
       - name: Collect Juju Status
         if: ${{ failure() }}
         run: |
+          cat $HOME/.local/state/charmcraft/log/*.log | tee tmp/charmcraft.log
           juju status 2>&1 | tee tmp/juju-status.txt
           juju-crashdump -s -m controller -a debug-layer -a config -o tmp/
           mv juju-crashdump-* tmp/ | true
