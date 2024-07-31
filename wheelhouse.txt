@@ -1,2 +1,2 @@
-charms.reactive @ git+https://github.com/canonical/charms.reactive.git
+charms.reactive==1.5.3
 setuptools==70.3.0
