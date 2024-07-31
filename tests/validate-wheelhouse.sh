@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eux
 
 build_dir="$(mktemp -d)"
 charm="$(egrep '^name\S*:' ./metadata.yaml | awk '{ print $2 }')"
