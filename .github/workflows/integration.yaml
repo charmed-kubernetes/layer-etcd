@@ -1,20 +1,15 @@
-name: Charmed Kubernetes VSphere Integration Tests
+name: Charmed Kubernetes Integration Tests
 on: 
   - pull_request
 
 jobs:
   integration-test:
-    name: Integration test with VMWare
-    runs-on: self-hosted
+    name: Integration test
+    runs-on: ubuntu-20.04
     timeout-minutes: 360
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-      - name: Install Build Dependencies
-        run: |
-          sudo add-apt-repository ppa:deadsnakes/ppa -y
-          sudo apt update
-          sudo apt install -y build-essential python3.8-dev
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -22,15 +17,11 @@ jobs:
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
-          provider: vsphere
+          provider: lxd
           juju-channel: 3/stable
           charm-channel: 3.x/stable
-          credentials-yaml: ${{ secrets.CREDENTIALS_YAML }}
-          clouds-yaml: ${{ secrets.CLOUDS_YAML }}
-          bootstrap-constraints: "arch=amd64 cores=2 mem=4G"
-          bootstrap-options: "${{ secrets.JAMMY_BOOTSTRAP_OPTIONS }} --model-default datastore=vsanDatastore --model-default primary-network=VLAN_2763"
       - name: Run test
-        run: tox -e integration -- --basetemp=/home/ubuntu/pytest
+        run: tox -e integration
       - name: Setup Debug Artifact Collection
         if: ${{ failure() }}
         run: mkdir tmp
