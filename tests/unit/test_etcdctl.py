@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
+from charms.unit_test import MockKV
 import reactive.etcd
 
 import etcd_lib
@@ -26,6 +27,15 @@ from reactive.etcd import (
     register_prometheus_jobs,
     status,
 )
+
+
+@pytest.fixture
+def config():
+    kv = MockKV()
+    reactive.etcd.config.reset_mock()
+    reactive.etcd.config.side_effect = kv.get
+    reactive.etcd.config.set = kv.set
+    return reactive.etcd.config
 
 
 class TestEtcdCtl:
@@ -140,7 +150,7 @@ class TestEtcdCtl:
         )
         reactive.etcd.set_flag.assert_called_with("grafana.configured")
 
-    def test_register_prometheus_job(self, mocker):
+    def test_register_prometheus_job(self, mocker, config):
         """Test successful registration of prometheus job."""
         ingress_address = "10.0.0.1"
         port = "2379"
@@ -160,7 +170,7 @@ class TestEtcdCtl:
         mocker.patch.object(
             reactive.etcd, "get_ingress_address", return_value=ingress_address
         )
-        reactive.etcd.config.return_value = port
+        config.set("port", port)
 
         register_prometheus_jobs()
 

@@ -6,4 +6,5 @@ __pycache__
 .coverage
 .unit-state.db
 *.swp
+*.charm
 .cache/*

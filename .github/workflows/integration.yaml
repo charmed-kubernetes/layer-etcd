@@ -1,42 +1,40 @@
-name: Charmed Kubernetes VSphere Integration Tests
+name: Charmed Kubernetes Integration Tests
 on: 
   - pull_request
 
 jobs:
   integration-test:
-    name: Integration test with VMWare
-    runs-on: self-hosted
+    name: Integration test
+    runs-on: ubuntu-20.04
     timeout-minutes: 360
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
-          provider: vsphere
-          juju-channel: 3.1/stable
-          credentials-yaml: ${{ secrets.CREDENTIALS_YAML }}
-          clouds-yaml: ${{ secrets.CLOUDS_YAML }}
-          bootstrap-constraints: "arch=amd64 cores=2 mem=4G"
-          bootstrap-options: "${{ secrets.JAMMY_BOOTSTRAP_OPTIONS }} --model-default datastore=vsanDatastore --model-default primary-network=VLAN_2763"
+          provider: lxd
+          juju-channel: 3/stable
+          charm-channel: 3.x/stable
       - name: Run test
-        run: tox -e integration -- --basetemp=/home/ubuntu/pytest
+        run: tox -e integration
       - name: Setup Debug Artifact Collection
         if: ${{ failure() }}
         run: mkdir tmp
       - name: Collect Juju Status
         if: ${{ failure() }}
         run: |
+          cat $HOME/.local/state/charmcraft/log/*.log | tee tmp/charmcraft.log
           juju status 2>&1 | tee tmp/juju-status.txt
           juju-crashdump -s -m controller -a debug-layer -a config -o tmp/
           mv juju-crashdump-* tmp/ | true
       - name: Upload debug artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: test-run-artifacts
           path: tmp
