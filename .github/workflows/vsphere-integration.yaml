@@ -10,8 +10,13 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+      - name: Install Build Dependencies
+        run: |
+          sudo add-apt-repository ppa:deadsnakes/ppa -y
+          sudo apt update
+          sudo apt install -y build-essential python3.8-dev
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Setup operator environment
