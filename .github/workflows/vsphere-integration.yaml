@@ -9,7 +9,7 @@ jobs:
     timeout-minutes: 360
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
