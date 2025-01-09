@@ -19,6 +19,7 @@ jobs:
         with:
           provider: vsphere
           juju-channel: 3/stable
+          charm-channel: 3.x/stable
           credentials-yaml: ${{ secrets.CREDENTIALS_YAML }}
           clouds-yaml: ${{ secrets.CLOUDS_YAML }}
           bootstrap-constraints: "arch=amd64 cores=2 mem=4G"
