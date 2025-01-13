@@ -24,6 +24,9 @@ class EtcdDatabag:
      'cluster_address': '127.0.0.1',
      'db_address': '127.0.0.1',
      'unit_name': 'etcd0',
+     'heartbeat-interval': '100',
+     'election-timeout': '1000',
+     'snapshot-count': '10000',
      'port': '2380',
      'management_port': '2379',
      'ca_certificate': '/etc/ssl/etcd/ca.crt',
@@ -46,6 +49,9 @@ class EtcdDatabag:
             self.listen_client_urls.insert(0, build_uri("http", "127.0.0.1", 4001))
         self.advertise_urls = [build_uri("https", get_ingress_address("db"), self.port)]
         self.management_port = config("management_port")
+        self.heartbeat_interval = config("heartbeat_interval")
+        self.election_timeout = config("election_timeout")
+        self.snapshot_count = config("snapshot_count")
         # Live polled properties
         self.cluster_address = get_ingress_address("cluster")
         self.unit_name = os.getenv("JUJU_UNIT_NAME").replace("/", "")

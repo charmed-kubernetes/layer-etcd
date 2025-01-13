@@ -209,7 +209,13 @@ def post_series_upgrade():
 
 @when("snap.installed.etcd")
 @when("leadership.is_leader")
-@when_any("config.changed.port", "config.changed.management_port")
+@when_any(
+    "config.changed.port",
+    "config.changed.management_port",
+    "config.changed.snapshot_count",
+    "config.changed.election_timeout",
+    "config.changed.heartbeat_interval",
+)
 @when_not("etcd.installed")
 @when_not("upgrade.series.in-progress")
 def leader_config_changed():
@@ -247,7 +253,13 @@ def leader_config_changed():
 
 @when("snap.installed.etcd")
 @when_not("leadership.is_leader")
-@when_any("config.changed.port", "config.changed.management_port")
+@when_any(
+    "config.changed.port",
+    "config.changed.management_port",
+    "config.changed.snapshot_count",
+    "config.changed.election_timeout",
+    "config.changed.heartbeat_interval",
+)
 @when_not("etcd.installed")
 def follower_config_changed():
     """Follower units need to render the configuration file, close and open
