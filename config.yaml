@@ -10,11 +10,7 @@ options:
   channel:
     type: string
     default: auto
-    description: |
-      The snap channel from which to install etcd (e.g. '3.3/stable'), or 'auto'
-      to accept the charm default. Choosing 'auto' will install the latest 
-      supported version of etcd at deploy time, but will not automatically upgrade
-      to a newer version thereafter.
+    description: "The snap channel from which to install etcd (e.g. '3.3/stable'), or 'auto'\nto accept the charm default. Choosing 'auto' will install the latest \nsupported version of etcd at deploy time, but will not automatically upgrade\nto a newer version thereafter.\n"
   heartbeat_interval:
     type: int
     default: 100
@@ -29,12 +25,14 @@ options:
       attempting to become leader itself.
       By default, etcd uses a 1000ms election timeout.
   snapshot_count:
-    type: int
-    default: 10000
+    type: string
+    default: auto
     description: |
       Creating snapshots with the V2 backend can be expensive,
       so snapshots are only created after a given number of changes to etcd.
-      By default, snapshots will be made after every 10,000 changes.
+      The value could be an integer number or auto.
+      if auto, the channel version is checked.
+      Any channel grather than 3.2, use 100000 as value otherwhise 10000 is set
       If etcd’s memory usage and disk usage are too high,
       try lowering the snapshot threshold.
   snapd_refresh:

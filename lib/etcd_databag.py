@@ -4,8 +4,12 @@ from charmhelpers.core.hookenv import is_leader
 from charmhelpers.core.hookenv import leader_get, leader_set
 from charmhelpers.core import unitdata
 from charms.reactive import is_state
-from etcd_lib import get_ingress_address
-from etcd_lib import get_bind_address, build_uri
+from etcd_lib import (
+    get_ingress_address,
+    get_bind_address,
+    build_uri,
+    get_snapshot_count,
+)
 
 import string
 import random
@@ -26,7 +30,7 @@ class EtcdDatabag:
      'unit_name': 'etcd0',
      'heartbeat-interval': '100',
      'election-timeout': '1000',
-     'snapshot-count': '10000',
+     'snapshot-count': '100000',
      'port': '2380',
      'management_port': '2379',
      'ca_certificate': '/etc/ssl/etcd/ca.crt',
@@ -51,7 +55,9 @@ class EtcdDatabag:
         self.management_port = config("management_port")
         self.heartbeat_interval = config("heartbeat_interval")
         self.election_timeout = config("election_timeout")
-        self.snapshot_count = config("snapshot_count")
+        self.snapshot_count = get_snapshot_count(
+            config("snapshot_count"), config("channel")
+        )
         # Live polled properties
         self.cluster_address = get_ingress_address("cluster")
         self.unit_name = os.getenv("JUJU_UNIT_NAME").replace("/", "")
