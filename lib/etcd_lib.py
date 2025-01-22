@@ -47,7 +47,7 @@ def get_ingress_address(endpoint_name):
     return sorted(all_addrs, key=lambda i: ip_address(i).version)[0]
 
 
-def get_snapshot_count(snapshot_count, channel):
+def get_snapshot_count(snapshot_count: str, channel: str) -> int:
     """Returns the snapshot count value
 
     * check if the value is auto,
