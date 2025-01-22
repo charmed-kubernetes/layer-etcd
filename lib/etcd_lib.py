@@ -61,13 +61,10 @@ def get_snapshot_count(snapshot_count, channel):
         if channel == "auto" or float(channel.split("/")[0]) >= 3.2:
             return 100000
         return 10000
-    snapshot_count_number = 0
     try:
-        snapshot_count_number = int(snapshot_count)
+        return int(snapshot_count)
     except ValueError:
         raise TypeError(f"{snapshot_count} value is not an integer number")
-
-    return snapshot_count_number
 
 
 def get_bind_address(endpoint_name):
