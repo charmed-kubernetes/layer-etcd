@@ -79,20 +79,20 @@ def test_get_bind_address_picks_v4_first(unit_private_ip):
     unit_private_ip.assert_not_called()
 
 
-def test_get_snapshot_count_auto_3.2():
-    channel = 3.2
-    snapshot-count = "auto"
-    assert get_snapshot_count(snapshot-count,channel) == 100000
+def test_get_snapshot_count_auto_3_2():
+    channel = "3.2"
+    snapshot_count = "auto"
+    assert get_snapshot_count(snapshot_count, channel) == 100000
 
-def test_get_snapshot_count_auto_3.X():
-    channel = 3.1
-    snapshot-count = "auto"
-    assert get_snapshot_count(snapshot-count,channel) == 10000
+def test_get_snapshot_count_auto_3_1():
+    channel = "3.1"
+    snapshot_count = "auto"
+    assert get_snapshot_count(snapshot_count, channel) == 10000
 
 def test_get_snapshot_count():
-    channel = 3.1
+    channel = "3.1"
     snapshot_count = "100"
-    assert get_snapshot_count(snapshot-count,channel) == int(snapshot_count)
+    assert get_snapshot_count(snapshot_count, channel) == int(snapshot_count)
 
 def test_get_bind_address_picks_v6(unit_private_ip):
     ipv6 = "2002::1234:abcd:ffff:c0a8:101"
