@@ -1,4 +1,5 @@
 from ipaddress import ip_address
+from packaging.version import Version
 
 from charmhelpers.contrib.templating.jinja import render
 from charmhelpers.core.hookenv import (
@@ -57,10 +58,13 @@ def get_snapshot_count(snapshot_count: str, channel: str) -> int:
     @param snapshot_count the value to set, could be a number or auto
     @param channel the channel used by the charm
     """
+    SNAPSHOT_COUNT_PRIOR_32 = 10000
+    SNAPSHOT_COUNT_BEYOND_32 = 100000
+    CHANNEL = channel.split("/")[0]
     if snapshot_count == "auto":
-        if channel == "auto" or float(channel.split("/")[0]) >= 3.2:
-            return 100000
-        return 10000
+        if channel == "auto" or Version(CHANNEL) >= Version("3.2"):
+            return SNAPSHOT_COUNT_BEYOND_32
+        return SNAPSHOT_COUNT_PRIOR_32
     try:
         return int(snapshot_count)
     except ValueError:
