@@ -35,6 +35,8 @@ def config():
     reactive.etcd.config.reset_mock()
     reactive.etcd.config.side_effect = kv.get
     reactive.etcd.config.set = kv.set
+    reactive.etcd.config.set("channel", "3.2/stable")
+    reactive.etcd.config.set("snapshot_count", "auto")
     return reactive.etcd.config
 
 
