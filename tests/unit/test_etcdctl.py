@@ -117,15 +117,23 @@ class TestEtcdCtl:
     def test_etcdctl_environment_with_version_2(self, etcdctl):
         """Validate that environment gets set correctly
         spoiler alert; it shouldn't be set when passing --version"""
-        with patch("etcdctl.check_output") as comock:
-            etcdctl.run("member list", api=2)
+        with patch("etcdctl.run") as comock:
+            comock.return_value.stdout = expected = (
+                """
+4f24ee16c889f6c1: name=etcd20 peerURLs=https://10.113.96.197:2380 clientURLs=https://10.113.96.197:2379  # noqa
+edc04bb81479d7e8: name=etcd21 peerURLs=https://10.113.96.243:2380 clientURLs=https://10.113.96.243:2379  # noqa
+edc0dsa81479d7e8[unstarted]: peerURLs=https://10.113.96.124:2380  # noqa""".strip()
+            )
+            comock.stderr = """Warning: something happened"""
+            out = etcdctl.run("member list", api=2)
             api_version = comock.call_args[1].get("env").get("ETCDCTL_API")
             assert api_version == "2"
+            assert out == expected
 
     def test_etcdctl_environment_with_version_3(self, etcdctl):
         """Validate that environment gets set correctly
         spoiler alert; it shouldn't be set when passing --version"""
-        with patch("etcdctl.check_output") as comock:
+        with patch("etcdctl.run") as comock:
             etcdctl.run("member list", api=3)
             api_version = comock.call_args[1].get("env").get("ETCDCTL_API")
             assert api_version == "3"

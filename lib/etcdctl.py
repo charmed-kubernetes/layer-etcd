@@ -1,8 +1,7 @@
 from charms import layer
 from charmhelpers.core.hookenv import log
 from subprocess import CalledProcessError
-from subprocess import check_output
-from subprocess import STDOUT
+from subprocess import check_output, run
 from typing import Optional
 import os
 from etcd_lib import build_uri
@@ -178,13 +177,19 @@ class EtcdCtl:
             command.insert(2, endpoints)
 
         try:
-            return check_output(command, env=env, stderr=STDOUT).decode("utf-8")
+            proc = run(command, env=env, check=True, capture_output=True, text=True)
         except CalledProcessError as e:
             log(command, "ERROR")
             log(env, "ERROR")
             log(e.stdout, "ERROR")
             log(e.stderr, "ERROR")
             raise EtcdCtl.CommandFailed() from e
+
+        if proc.stderr.strip():
+            log(command, "WARNING")
+            log(env, "WARNING")
+            log(proc.stderr, "WARNING")
+        return proc.stdout
 
     def version(self):
         """Return the version of etcdctl"""
