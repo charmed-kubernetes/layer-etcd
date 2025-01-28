@@ -185,7 +185,7 @@ class EtcdCtl:
             log(e.stderr, "ERROR")
             raise EtcdCtl.CommandFailed() from e
 
-        if proc.stderr:
+        if proc.stderr.strip():
             log(command, "WARNING")
             log(env, "WARNING")
             log(proc.stderr, "WARNING")
