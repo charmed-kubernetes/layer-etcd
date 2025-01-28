@@ -177,7 +177,7 @@ class EtcdCtl:
             command.insert(2, endpoints)
 
         try:
-            proc = run(command, env=env, check=True, capture_output=True)
+            proc = run(command, env=env, check=True, capture_output=True, text=True)
         except CalledProcessError as e:
             log(command, "ERROR")
             log(env, "ERROR")
@@ -188,8 +188,8 @@ class EtcdCtl:
         if proc.stderr:
             log(command, "WARNING")
             log(env, "WARNING")
-            log(proc.stderr.decode("utf-8"), "WARNING")
-        return proc.stdout.decode("utf-8")
+            log(proc.stderr, "WARNING")
+        return proc.stdout
 
     def version(self):
         """Return the version of etcdctl"""
