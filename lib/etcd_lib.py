@@ -1,4 +1,5 @@
 from ipaddress import ip_address
+from packaging.version import Version
 
 from charmhelpers.contrib.templating.jinja import render
 from charmhelpers.core.hookenv import (
@@ -45,6 +46,29 @@ def get_ingress_address(endpoint_name):
     """
     all_addrs = get_ingress_addresses(endpoint_name)
     return sorted(all_addrs, key=lambda i: ip_address(i).version)[0]
+
+
+def get_snapshot_count(snapshot_count: str, channel: str) -> int:
+    """Returns the snapshot count value
+
+    * check if the value is auto,
+        iff channel >=3.2 it will set 100'000 otherwhise it will set 10'000
+    * any other integer value will be set as it is
+
+    @param snapshot_count the value to set, could be a number or auto
+    @param channel the channel used by the charm
+    """
+    SNAPSHOT_COUNT_PRIOR_32 = 10000
+    SNAPSHOT_COUNT_BEYOND_32 = 100000
+    CHANNEL = channel.split("/")[0]
+    if snapshot_count == "auto":
+        if channel == "auto" or Version(CHANNEL) >= Version("3.2"):
+            return SNAPSHOT_COUNT_BEYOND_32
+        return SNAPSHOT_COUNT_PRIOR_32
+    try:
+        return int(snapshot_count)
+    except ValueError:
+        raise TypeError(f"{snapshot_count} value is not an integer number")
 
 
 def get_bind_address(endpoint_name):

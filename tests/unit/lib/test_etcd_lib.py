@@ -5,7 +5,12 @@ from charmhelpers.contrib.templating import jinja
 import charmhelpers.core.hookenv as hookenv
 import pytest
 
-from etcd_lib import build_uri, get_bind_address, render_grafana_dashboard
+from etcd_lib import (
+    build_uri,
+    get_bind_address,
+    render_grafana_dashboard,
+    get_snapshot_count,
+)
 
 
 def test_render_grafana_dashboard():
@@ -76,6 +81,24 @@ def test_get_bind_address_picks_v4_first(unit_private_ip):
     with mock.patch("etcd_lib.network_get", return_value=bind_data):
         assert get_bind_address("test") == ipv4
     unit_private_ip.assert_not_called()
+
+
+def test_get_snapshot_count_auto_3_2():
+    channel = "3.2"
+    snapshot_count = "auto"
+    assert get_snapshot_count(snapshot_count, channel) == 100000
+
+
+def test_get_snapshot_count_auto_3_1():
+    channel = "3.1"
+    snapshot_count = "auto"
+    assert get_snapshot_count(snapshot_count, channel) == 10000
+
+
+def test_get_snapshot_count():
+    channel = "3.1"
+    snapshot_count = "100"
+    assert get_snapshot_count(snapshot_count, channel) == int(snapshot_count)
 
 
 def test_get_bind_address_picks_v6(unit_private_ip):
