@@ -5,7 +5,6 @@ from charmhelpers.core import unitdata
 from charmhelpers.core.hookenv import action_get
 from charmhelpers.core.hookenv import action_set
 from charmhelpers.core.hookenv import action_fail
-from charmhelpers.core.hookenv import config
 from charmhelpers.core.hookenv import log
 from charms.reactive import is_state
 from charms.reactive import remove_state
@@ -153,7 +152,7 @@ def purge_deb_files():
             k = "purge.missing.{}".format(os.path.basename(f))
             msg = "Did not purge {}. File not found.".format(f)
             action_set({k: msg})
-        except:
+        except Exception:
             k = "purge.error.{}".format(f)
             msg = "Failed to purge {}. Manual removal required.".format(k)
             action_set({k: msg})
