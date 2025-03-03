@@ -5,7 +5,7 @@ on:
 jobs:
   integration-test:
     name: Integration test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
       - name: Check out code
@@ -13,7 +13,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: "3.12"
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
