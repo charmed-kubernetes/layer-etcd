@@ -45,7 +45,6 @@ resources:
 series:
   - noble
   - jammy
-  - focal
 storage:
   data:
    type: block
