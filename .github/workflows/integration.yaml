@@ -5,23 +5,32 @@ on:
 jobs:
   integration-test:
     name: Integration test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 360
+    strategy:
+      matrix:
+        series:
+        - jammy
+        - noble
     steps:
       - name: Check out code
         uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: "3.10"
+      - id: charmcraft
+        run: echo "channel=$(cat .charmcraft-channel)" >> $GITHUB_OUTPUT
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
           provider: lxd
           juju-channel: 3/stable
           charm-channel: 3.x/stable
+          charmcraft-channel: ${{ steps.charmcraft.outputs.channel }}
+          bootstrap-options: "--bootstrap-base=ubuntu@24.04"
       - name: Run test
-        run: tox -e integration
+        run: tox -e integration -- --series ${{ matrix.series }}
       - name: Setup Debug Artifact Collection
         if: ${{ failure() }}
         run: mkdir tmp

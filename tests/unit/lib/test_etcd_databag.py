@@ -46,7 +46,7 @@ def test_render_etcd2(
     config.set("channel", "3.2/stable")
     config.set("snapshot_count", "auto")
     bag = etcd_databag.EtcdDatabag()
-    template_env = Environment(loader=FileSystemLoader("templates"))
+    template_env = Environment(loader=FileSystemLoader("src/templates"))
     config = template_env.get_template("etcd2.conf").render(bag.__dict__)
     lines = config.splitlines()
     assert 'ETCD_ADVERTISE_CLIENT_URLS="https://[4001:84::1]:5678"' in lines
@@ -69,7 +69,7 @@ def test_render_etcd3(
     config.set("channel", "3.2/stable")
     config.set("snapshot_count", "auto")
     bag = etcd_databag.EtcdDatabag()
-    template_env = Environment(loader=FileSystemLoader("templates"))
+    template_env = Environment(loader=FileSystemLoader("src/templates"))
     config = template_env.get_template("etcd3.conf").render(bag.__dict__)
     lines = config.splitlines()
     assert "advertise-client-urls: https://[4001:84::1]:5678" in lines

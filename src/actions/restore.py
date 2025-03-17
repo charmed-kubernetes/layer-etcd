@@ -183,7 +183,7 @@ def probe_forked_etcd():
         try:
             output = check_output(split("/snap/bin/etcd.etcdctl member list"))
             loop = loop + 1
-        except:
+        except Exception:
             log("Still waiting on forked etcd instance...")
             output = b""
             loop = loop + 1

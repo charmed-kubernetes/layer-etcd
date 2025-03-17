@@ -7,9 +7,9 @@ import nagios_plugin3
 
 def load_alarm_list():
     """Load the cached status from disk, return it as a string"""
-    alarm_list_path = '/var/lib/nagios/etcd-alarm-list.txt'
+    alarm_list_path = "/var/lib/nagios/etcd-alarm-list.txt"
 
-    with open(alarm_list_path, 'r') as alarm_list_log:
+    with open(alarm_list_path, "r") as alarm_list_log:
         alarm_list = alarm_list_log.read()
 
     return alarm_list.strip()
@@ -24,7 +24,7 @@ def check_alarms():
         if line:
             alarms.append(line)
     if alarms:
-        raise nagios_plugin3.CriticalError(' '.join(alarms))
+        raise nagios_plugin3.CriticalError(" ".join(alarms))
 
 
 def main():
