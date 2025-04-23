@@ -16,16 +16,23 @@ parts:
   charm:
     source: src
     plugin: reactive
+    override-build: |
+      ./download_layers.sh
+      craftctl default
+      git -C $CRAFT_PROJECT_DIR rev-parse --short HEAD > $CRAFT_PART_INSTALL/version
     reactive-charm-build-arguments:
     - --layer-index
-    - https://raw.githubusercontent.com/charmed-kubernetes/layer-index/main/
+    - 'http://localhost/'  # Fake layer index to force a local build
     - --debug
     - --force
     build-packages:
+    - git
+    - wget
     - python3-dev
     build-snaps:
     - charm/3.x/stable
+    - yq
     build-environment:
     - CHARM_INTERFACES_DIR: $CRAFT_PROJECT_DIR/interfaces/
     - CHARM_LAYERS_DIR: $CRAFT_PROJECT_DIR/layers/
-
+    - RELEASE_BRANCH: main
