@@ -16,10 +16,13 @@ provides:
     interface: etcd
   proxy:
     interface: etcd-proxy
+    optional: true
   prometheus:
     interface: prometheus-manual
+    optional: true
   grafana:
     interface: grafana-dashboard
+    optional: true
 peers:
   cluster:
     interface: etcd
